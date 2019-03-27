@@ -4,7 +4,7 @@
   editor = vim
 [user]
   name = Soma Lucz
-  email = luczsoma@gmail.com
+  useConfigOnly = true
 [alias]
   st = status
   ci = commit

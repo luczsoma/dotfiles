@@ -1,6 +1,5 @@
 [core]
   autocrlf = input
-  excludesfile =
   editor = vim
 [user]
   name = Soma Lucz
@@ -16,7 +15,7 @@
   f = fetch
   r = rebase
   rs = reset
-  hist = log --pretty=format:\"%Cgreen%h %Cred%ad %Creset%s%Cblue%d %Cred(%an)\" --graph --date=short
+  hist = log --graph --date=short --pretty=format:\"%Cgreen%h %Cred%ad %Creset%s%Cblue%d %Cred(%an)\"
   pushf = push --force-with-lease
   d = diff --word-diff
   quick-stats = ! /usr/local/bin/git-quick-stats

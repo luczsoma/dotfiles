@@ -5,6 +5,8 @@
 [user]
   name = Soma Lucz
   useConfigOnly = true
+[commit]
+  template = ~/.gitmessage
 [alias]
   st = status
   ci = commit

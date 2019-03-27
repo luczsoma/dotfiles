@@ -14,7 +14,7 @@
   f = fetch
   r = rebase
   rs = reset
-  hist = log --pretty=format:\"%Cgreen%h %Creset%ad | %s%d [%an]\" --graph --date=short
+  hist = log --pretty=format:\"%Cgreen%h %Cred%ad %Creset%s%Cblue%d %Cred(%an)\" --graph --date=short
   pushf = push --force-with-lease
   d = diff --word-diff
   quick-stats = ! /usr/local/bin/git-quick-stats
@@ -45,4 +45,3 @@
   prune = true
 [tag]
   sort = version:refname
-

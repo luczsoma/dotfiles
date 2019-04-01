@@ -15,7 +15,7 @@ alias mv="mv -i"
 alias clr="clear"
 
 # Fast IP query
-alias ip="dig +short myip.opendns.com @resolver2.opendns.com"
+alias ip="curl ifconfig.co"
 
 # Shortcut for flushing DNS cache
 function flushdns() {

@@ -20,6 +20,7 @@
   d = diff --word-diff
   quick-stats = ! /usr/local/bin/git-quick-stats
   sh = stash
+  su = submodule update --init --recursive
 [push]
   default = simple
 [pager]

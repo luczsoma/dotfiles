@@ -3,4 +3,4 @@ gulp-cli
 bower
 lerna
 chromedriver
-
+@angular/cli

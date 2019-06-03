@@ -127,3 +127,5 @@ export LANG=en_US.UTF-8
 # hunspell dictionary settings
 export DICTIONARY=hu_HU
 export DICPATH=~/projects/magyarispell/hu_HU
+
+export JAVA_HOME=$(/usr/libexec/java_home)

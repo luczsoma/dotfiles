@@ -21,6 +21,7 @@
   quick-stats = ! /usr/local/bin/git-quick-stats
   sh = stash
   su = submodule update --init --recursive
+  md = !git fetch && git merge origin/devel
 [push]
   default = simple
 [pager]

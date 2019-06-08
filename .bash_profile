@@ -129,3 +129,6 @@ export DICTIONARY=hu_HU
 export DICPATH=~/projects/magyarispell/hu_HU
 
 export JAVA_HOME=$(/usr/libexec/java_home)
+
+# OpenSSL 1.1 instead of the OS default LibreSSL
+export PATH="/usr/local/opt/openssl@1.1/bin:$PATH" >> ~/.bash_profile

@@ -4,3 +4,5 @@ bower
 lerna
 chromedriver
 @angular/cli
+typescript
+

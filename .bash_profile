@@ -135,3 +135,6 @@ export PATH="/usr/local/opt/openssl@1.1/bin:$PATH"
 
 # GetText
 export PATH="/usr/local/opt/gettext/bin:$PATH"
+
+# Hide Catalina message about the default shell being zsh
+export BASH_SILENCE_DEPRECATION_WARNING=1

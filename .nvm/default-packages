@@ -5,4 +5,5 @@ lerna
 chromedriver
 @angular/cli
 typescript
+wdio
 

@@ -47,8 +47,8 @@ function dot2png() {
 function cloc-github() {
 	REPO_NAME=temp-linecount-repo-NN27xTyrk0OdJuQ1RVUc
 	git clone --depth 1 "$1" ${REPO_NAME} &&
-  cloc ${REPO_NAME} &&
-  rm -rf ${REPO_NAME}
+	cloc ${REPO_NAME} &&
+	rm -rf ${REPO_NAME}
 }
 
 # Count lines of code in a GitHub repository

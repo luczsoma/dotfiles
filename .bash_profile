@@ -70,6 +70,16 @@ if len(sys.argv) == 2:
 		print(number)' $1
 }
 
+jdk() {
+	if [[ $# -eq 0 ]]; then
+		/usr/libexec/java_home -V
+	elif [[ $# -eq 1 ]]; then
+		version=$1
+		export JAVA_HOME=$(/usr/libexec/java_home -v "$version");
+		java -version
+	fi
+ }
+
 # Handling personal vault
 function vault() {
 	if [[ $# -ne 1 ]]; then

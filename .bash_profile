@@ -148,3 +148,6 @@ export PATH="/usr/local/opt/gettext/bin:$PATH"
 
 # Hide Catalina message about the default shell being zsh
 export BASH_SILENCE_DEPRECATION_WARNING=1
+
+# Neo4j
+export NEO4J_HOME="/Applications/neo4j-enterprise-3.5.17"

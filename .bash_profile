@@ -150,4 +150,4 @@ export PATH="/usr/local/opt/gettext/bin:$PATH"
 export BASH_SILENCE_DEPRECATION_WARNING=1
 
 # Neo4j
-export NEO4J_HOME="/Applications/neo4j-enterprise-3.5.17"
+export NEO4J_HOME="/Applications/neo4j-enterprise-4.0.3"

@@ -125,6 +125,26 @@ function tvconvert() {
     "$2"
 }
 
+function tvconvert_extsub() {
+    if [[ $# -ne 7 ]]; then
+        echo "Usage: tvconvert inputFileName outputFileName movieTitle videoStream audioStream subtitleFileName subtitleStream"
+        echo "e.g.: tvconvert Iron.Man.2008.mkv \"Iron Man.mkv\" \"Iron Man\" 0:0 0:1 \"Iron.Man.2008.srt\" 1:0"
+        return
+    fi
+
+    ffmpeg \
+    -i "$1" \
+    -i "$6" \
+    -map_metadata -1 \
+    -map_chapters -1 \
+    -metadata title="$3" \
+    -map "$4" -c:v:0 copy \
+    -map "$5" -c:a:0 aac -ar:a:0 48000 -b:a:0 256k -ac:a:0 2 -metadata:s:a:0 title="English" -metadata:s:a:0 language=eng \
+    -map "$7" -c:s:0 copy -metadata:s:s:0 title="English" -metadata:s:s:0 language=eng \
+    -disposition:s:0 default \
+    "$2"
+}
+
 # Adding SSH keys to the agent
 ssh-add ~/.ssh/Ganymed_Hermes 2> /dev/null
 ssh-add ~/.ssh/GitHub_Hermes 2> /dev/null

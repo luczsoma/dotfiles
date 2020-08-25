@@ -70,7 +70,7 @@ if len(sys.argv) == 2:
 		print(number)' $1
 }
 
-jdk() {
+function jdk() {
 	if [[ $# -eq 0 ]]; then
 		/usr/libexec/java_home -V
 	elif [[ $# -eq 1 ]]; then
@@ -83,7 +83,7 @@ jdk() {
 # Handling personal vault
 function vault() {
 	if [[ $# -ne 1 ]]; then
-		exit 1
+		return
 	fi
 
 	pushd ~/Vault
@@ -103,6 +103,26 @@ function vault() {
 			;;
 	esac
 	popd
+}
+
+# Handling movie conversions
+function tvconvert() {
+    if [[ $# -ne 6 ]]; then
+        echo "Usage: tvconvert inputFileName outputFileName movieTitle videoStream audioStream subtitleStream"
+        echo "e.g.: tvconvert Iron.Man.2008.mkv \"Iron Man.mkv\" \"Iron Man\" 0:0 0:1 0:2"
+        return
+    fi
+
+    ffmpeg \
+    -i "$1" \
+    -map_metadata -1 \
+    -map_chapters -1 \
+    -metadata title="$3" \
+    -map "$4" -c:v:0 copy \
+    -map "$5" -c:a:0 aac -ar:a:0 48000 -b:a:0 256k -ac:a:0 2 -metadata:s:a:0 title="English" -metadata:s:a:0 language=eng \
+    -map "$6" -c:s:0 copy -metadata:s:s:0 title="English" -metadata:s:s:0 language=eng \
+    -disposition:s:0 default \
+    "$2"
 }
 
 # Adding SSH keys to the agent

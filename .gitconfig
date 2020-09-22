@@ -15,7 +15,7 @@
   f = fetch
   r = rebase
   rs = reset
-  hist = log --graph --date=short --pretty=format:\"%Cgreen%h %Cred%ad %Creset%s%Cblue%d %Cred(%an)\"
+  hist = log --graph --date=short --pretty=format:\"%Cgreen%h %Creset%ad | %s%Cblue%d%Creset [%an]\"
   pushf = push --force-with-lease
   d = diff --word-diff
   quick-stats = ! /usr/local/bin/git-quick-stats

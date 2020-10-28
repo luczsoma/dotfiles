@@ -125,7 +125,7 @@ function tvconvert() {
     "$2"
 }
 
-function tvconvert_extsub() {
+function tvconvert_withexternalsubtitles() {
     if [[ $# -ne 7 ]]; then
         echo "Usage: tvconvert inputFileName outputFileName movieTitle videoStream audioStream subtitleFileName subtitleStream"
         echo "e.g.: tvconvert Iron.Man.2008.mkv \"Iron Man.mkv\" \"Iron Man\" 0:0 0:1 \"Iron.Man.2008.srt\" 1:0"

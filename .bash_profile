@@ -107,42 +107,79 @@ function vault() {
 
 # Handling movie conversions
 function tvconvert() {
-    if [[ $# -ne 6 ]]; then
-        echo "Usage: tvconvert inputFileName outputFileName movieTitle videoStream audioStream subtitleStream"
-        echo "e.g.: tvconvert Iron.Man.2008.mkv \"Iron Man.mkv\" \"Iron Man\" 0:0 0:1 0:2"
-        return
+    FFMPEG_BINARY="ffmpeg"
+
+    echo "Input files (one per line, end with Ctrl+D):"
+    readarray -t INPUT_FILES
+
+    COMMANDS=()
+    for INPUT_FILE in "${INPUT_FILES[@]}"
+    do
+        echo
+        echo "$INPUT_FILE"
+
+        echo
+
+        echo "Title:"
+        read TITLE
+        echo
+
+        echo "Year:"
+        read YEAR
+        echo
+        while [[ ! $YEAR =~ ^[1-2][0-9]{3}$ ]]
+        do
+            echo "Year:"
+            read YEAR
+            echo
+        done
+
+        OUTFILE="./converted/${TITLE//[^a-zA-Z0-9() \-]/} ($YEAR).mkv"
+
+        ffmpeg -i "$INPUT_FILE"
+
+        echo "Video stream:"
+        read VIDEO_STREAM
+        echo
+
+        echo "Audio stream:"
+        read AUDIO_STREAM
+        echo
+
+        echo "Subtitle stream:"
+        read SUBTITLE_STREAM
+
+        if [[ -z "$SUBTITLE_STREAM" ]]
+        then
+            echo "External subtitle file:"
+            read -e SUBTITLE_FILE
+
+            COMMAND="$FFMPEG_BINARY -i \"$INPUT_FILE\" -i \"$SUBTITLE_FILE\" -map_metadata -1 -map_chapters -1 -map 0:$VIDEO_STREAM -c:v:0 copy -map 0:$AUDIO_STREAM -c:a:0 aac -ar:a:0 48000 -b:a:0 256k -ac:a:0 2 -metadata:s:a:0 title="English" -metadata:s:a:0 language=eng -map 1:0 -c:s:0 copy -metadata:s:s:0 title="English" -metadata:s:s:0 language=eng -disposition:s:0 default \"$OUTFILE\""
+        else
+            COMMAND="$FFMPEG_BINARY -i \"$INPUT_FILE\" -map_metadata -1 -map_chapters -1 -map 0:$VIDEO_STREAM -c:v:0 copy -map 0:$AUDIO_STREAM -c:a:0 aac -ar:a:0 48000 -b:a:0 256k -ac:a:0 2 -metadata:s:a:0 title="English" -metadata:s:a:0 language=eng -map 0:$SUBTITLE_STREAM -c:s:0 copy -metadata:s:s:0 title="English" -metadata:s:s:0 language=eng -disposition:s:0 default \"$OUTFILE\""
+        fi
+
+        COMMANDS+=("$COMMAND")
+    done
+
+    ERRORS=()
+    for COMMAND in "${COMMANDS[@]}"
+    do
+        eval $COMMAND || ERRORS+=("$COMMAND")
+    done
+
+    if [[ ${#ERRORS[@]} -eq 0 ]]
+    then
+        echo
+        echo SUCCESS
+    else
+        echo
+        echo "FINISHED WITH ERRORS:"
+        for ERROR in "${ERRORS[@]}"
+        do
+            echo "$ERROR"
+        done
     fi
-
-    ffmpeg \
-    -i "$1" \
-    -map_metadata -1 \
-    -map_chapters -1 \
-    -metadata title="$3" \
-    -map "$4" -c:v:0 copy \
-    -map "$5" -c:a:0 aac -ar:a:0 48000 -b:a:0 256k -ac:a:0 2 -metadata:s:a:0 title="English" -metadata:s:a:0 language=eng \
-    -map "$6" -c:s:0 copy -metadata:s:s:0 title="English" -metadata:s:s:0 language=eng \
-    -disposition:s:0 default \
-    "$2"
-}
-
-function tvconvert_withexternalsubtitles() {
-    if [[ $# -ne 7 ]]; then
-        echo "Usage: tvconvert inputFileName outputFileName movieTitle videoStream audioStream subtitleFileName subtitleStream"
-        echo "e.g.: tvconvert Iron.Man.2008.mkv \"Iron Man.mkv\" \"Iron Man\" 0:0 0:1 \"Iron.Man.2008.srt\" 1:0"
-        return
-    fi
-
-    ffmpeg \
-    -i "$1" \
-    -i "$6" \
-    -map_metadata -1 \
-    -map_chapters -1 \
-    -metadata title="$3" \
-    -map "$4" -c:v:0 copy \
-    -map "$5" -c:a:0 aac -ar:a:0 48000 -b:a:0 256k -ac:a:0 2 -metadata:s:a:0 title="English" -metadata:s:a:0 language=eng \
-    -map "$7" -c:s:0 copy -metadata:s:s:0 title="English" -metadata:s:s:0 language=eng \
-    -disposition:s:0 default \
-    "$2"
 }
 
 # Adding SSH keys to the agent

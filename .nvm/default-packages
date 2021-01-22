@@ -1,9 +1,2 @@
-grunt-cli
-gulp-cli
-bower
-lerna
 chromedriver
-@angular/cli
-typescript
-draw.io-export
 

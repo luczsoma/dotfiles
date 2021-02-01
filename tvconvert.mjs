@@ -362,7 +362,7 @@ async function convert(
       const outTimeSeconds = outTimeMicroseconds / 1000000;
       const progress = outTimeSeconds / containerDurationSeconds;
       const newProgressPercentageRounded = (progress * 100).toFixed(2);
-      if (newProgressPercentageRounded > progressPercentageRounded) {
+      if (newProgressPercentageRounded !== progressPercentageRounded) {
         progressPercentageRounded = newProgressPercentageRounded;
         logProgress(
           currentFileIndex,
@@ -482,7 +482,6 @@ async function main() {
 
   if (errors.length === 0) {
     console.log("\nSUCCESS");
-    process.exit(0);
   } else {
     console.log(`\nFINISHED WITH ${errors.length} ERRORS:`);
     for (const { inputFilePath, stderr } of errors) {

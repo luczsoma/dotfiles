@@ -107,6 +107,11 @@ function tvconvert() {
     node ~/.dotfiles/tvconvert.mjs "$@"
 }
 
+function oraallas() {
+    sips --setProperty format jpeg --resampleWidth 1200 *.HEIC --out .
+    rm *.HEIC
+}
+
 # Adding SSH keys to the agent
 ssh-add ~/.ssh/Ganymed_Hermes 2>/dev/null
 ssh-add ~/.ssh/GitHub_Hermes 2>/dev/null

@@ -445,6 +445,9 @@ async function main() {
       process.exit(1);
     }
 
+    console.log(input.identifyingTitle);
+    console.log(`Source: ${input.inputFilePath}`);
+
     const {
       videoStreamIndex,
       audioStreamIndex,

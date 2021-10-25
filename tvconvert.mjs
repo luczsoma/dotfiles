@@ -128,8 +128,8 @@ function getStreamsInfo(inputFilePath) {
     .map((s) => ({
       index: s.index,
       codec_name: s.codec_name,
-      language: s.tags.language,
-      title: s.tags.title,
+      language: s.tags && s.tags.language,
+      title: s.tags && s.tags.title,
     }));
 
   const audioStreams = streams
@@ -213,9 +213,8 @@ async function selectSubtitleStream(subtitleStreams) {
 }
 
 async function selectInputStreams(inputFilePath) {
-  const { videoStreams, audioStreams, subtitleStreams } = getStreamsInfo(
-    inputFilePath
-  );
+  const { videoStreams, audioStreams, subtitleStreams } =
+    getStreamsInfo(inputFilePath);
 
   const videoStreamIndex = await selectVideoStream(videoStreams);
   const audioStreamIndex = await selectAudioStream(audioStreams);

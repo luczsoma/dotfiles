@@ -1,27 +1,15 @@
 import { spawn, spawnSync } from "child_process";
 import { existsSync, readFileSync, writeFileSync } from "fs";
-import { dirname, join } from "path";
+import { basename, dirname, join } from "path";
 import { createInterface } from "readline";
 
 const FFPROBE_BINARY = "/usr/local/ffmpeg/bin/ffprobe";
 const FFMPEG_BINARY = "/usr/local/ffmpeg/bin/ffmpeg";
 
 const EXAMPLE_CONFIG = {
-  movies: [
+  inputs: [
     {
-      movieTitle: "The Matrix",
-      year: 1999,
       inputFilePath: "downloaded/The Matrix/The Matrix.mkv",
-    },
-  ],
-  tvShowEpisodes: [
-    {
-      showTitle: "Totally Spies!",
-      season: 1,
-      episode: 1,
-      episodeTitle: "A Thing for Musicians",
-      inputFilePath:
-        "downloaded/Totally Spies Season 01/Totally Spies S01E01.mkv",
     },
   ],
   outputFolderPath: "converted",
@@ -123,15 +111,6 @@ function getStreamsInfo(inputFilePath) {
 
   const streams = JSON.parse(stdout).streams;
 
-  const videoStreams = streams
-    .filter((s) => s.codec_type === "video")
-    .map((s) => ({
-      index: s.index,
-      codec_name: s.codec_name,
-      language: s.tags && s.tags.language,
-      title: s.tags && s.tags.title,
-    }));
-
   const audioStreams = streams
     .filter((s) => s.codec_type === "audio")
     .map((s) => ({
@@ -151,24 +130,7 @@ function getStreamsInfo(inputFilePath) {
       title: s.tags && s.tags.title,
     }));
 
-  return { videoStreams, audioStreams, subtitleStreams };
-}
-
-async function selectVideoStream(videoStreams) {
-  if (videoStreams.length === 1) {
-    return videoStreams[0].index;
-  }
-
-  console.log(videoStreams);
-
-  let videoStreamIndex;
-  do {
-    videoStreamIndex = await question("Select video stream index: ");
-  } while (
-    !videoStreams.map((s) => s.index).includes(parseInt(videoStreamIndex, 10))
-  );
-
-  return videoStreamIndex;
+  return { audioStreams, subtitleStreams };
 }
 
 async function selectAudioStream(audioStreams) {
@@ -185,49 +147,18 @@ async function selectAudioStream(audioStreams) {
 }
 
 async function selectSubtitleStream(subtitleStreams) {
-  console.log(subtitleStreams);
+  console.log(subtitleStreams.filter((s) => s.codec_name === "subrip"));
 
   let subtitleStreamIndex;
   do {
-    subtitleStreamIndex = await question(
-      "Select subtitle stream index (leave empty for external subtitle file): "
-    );
+    subtitleStreamIndex = await question("Select subtitle stream index: ");
   } while (
-    !(
-      subtitleStreams
-        .map((s) => s.index)
-        .includes(parseInt(subtitleStreamIndex, 10)) ||
-      subtitleStreamIndex === ""
-    )
+    !subtitleStreams
+      .map((s) => s.index)
+      .includes(parseInt(subtitleStreamIndex, 10))
   );
 
-  let subtitleFilePath;
-  if (!subtitleStreamIndex) {
-    subtitleStreamIndex = 0;
-    do {
-      subtitleFilePath = await question("External subtitle file: ");
-    } while (!existsSync(subtitleFilePath));
-  }
-
-  return { subtitleStreamIndex, subtitleFilePath };
-}
-
-async function selectInputStreams(inputFilePath) {
-  const { videoStreams, audioStreams, subtitleStreams } =
-    getStreamsInfo(inputFilePath);
-
-  const videoStreamIndex = await selectVideoStream(videoStreams);
-  const audioStreamIndex = await selectAudioStream(audioStreams);
-  const { subtitleStreamIndex, subtitleFilePath } = await selectSubtitleStream(
-    subtitleStreams
-  );
-
-  return {
-    videoStreamIndex,
-    audioStreamIndex,
-    subtitleStreamIndex,
-    subtitleFilePath,
-  };
+  return subtitleStreamIndex;
 }
 
 function mkdirpForOutputFile(outputFilePath) {
@@ -267,13 +198,10 @@ function logProgress(
 }
 
 async function convert(
-  identifyingTitle,
   inputFilePath,
   outputFilePath,
-  videoStreamIndex,
   audioStreamIndex,
   subtitleStreamIndex,
-  subtitleFilePath,
   currentFileIndex,
   allFilesCount
 ) {
@@ -282,8 +210,6 @@ async function convert(
     "========================================================================"
   );
   console.log(`Converting ${currentFileIndex} / ${allFilesCount}`);
-  console.log(identifyingTitle);
-  console.log();
   console.log(`Source: ${inputFilePath}`);
   console.log(`Destination: ${outputFilePath}`);
   console.log(
@@ -303,19 +229,18 @@ async function convert(
   ];
 
   const inputFileArguments = ["-i", inputFilePath];
-  if (subtitleFilePath) {
-    inputFileArguments.push("-i", subtitleFilePath);
-  }
 
   const outputFileArguments = [
-    "-map_metadata",
-    "-1",
-    "-map_chapters",
-    "-1",
+    // copy video streams
     "-map",
-    `0:${videoStreamIndex}`,
-    "-c:v:0",
+    "0:v",
+    "-c:v",
     "copy",
+
+    // map the selected input audio stream to the first and default output audio stream
+    // transcode to 2.0 AAC (48kHz, 256kbps) and apply the following filters:
+    //   - loudnorm
+    //   - acompressor (ratio = 4)
     "-map",
     `0:${audioStreamIndex}`,
     "-c:a:0",
@@ -327,19 +252,168 @@ async function convert(
     "-ac:a:0",
     "2",
     "-metadata:s:a:0",
-    "title=English",
+    "title=English 2.0 AAC (normalized and compressed)",
     "-metadata:s:a:0",
     "language=eng",
-    "-map",
-    `${subtitleFilePath ? 1 : 0}:${subtitleStreamIndex}`,
-    "-c:s:0",
-    "copy",
-    "-metadata:s:s:0",
-    'title="English"',
-    "-metadata:s:s:0",
-    "language=eng",
-    "-disposition:s:0",
+    "-disposition:a:0",
     "default",
+
+    // map all original audio streams shifted by plus one
+    "-map",
+    "0:a:0?",
+    "-c:a:1",
+    "copy",
+    "-disposition:a:1",
+    "0",
+
+    "-map",
+    "0:a:1?",
+    "-c:a:2",
+    "copy",
+    "-disposition:a:2",
+    "0",
+
+    "-map",
+    "0:a:2?",
+    "-c:a:3",
+    "copy",
+    "-disposition:a:3",
+    "0",
+
+    "-map",
+    "0:a:3?",
+    "-c:a:4",
+    "copy",
+    "-disposition:a:4",
+    "0",
+
+    "-map",
+    "0:a:4?",
+    "-c:a:5",
+    "copy",
+    "-disposition:a:5",
+    "0",
+
+    "-map",
+    "0:a:5?",
+    "-c:a:6",
+    "copy",
+    "-disposition:a:6",
+    "0",
+
+    "-map",
+    "0:a:6?",
+    "-c:a:7",
+    "copy",
+    "-disposition:a:7",
+    "0",
+
+    "-map",
+    "0:a:7?",
+    "-c:a:8",
+    "copy",
+    "-disposition:a:8",
+    "0",
+
+    "-map",
+    "0:a:8?",
+    "-c:a:9",
+    "copy",
+    "-disposition:a:9",
+    "0",
+
+    "-map",
+    "0:a:9?",
+    "-c:a:10",
+    "copy",
+    "-disposition:a:10",
+    "0",
+
+    // if there is a selected subtitle stream,
+    //   map the selected input subtitle stream to the first and default output subtitle stream,
+    //   and map all original subtitle streams shifted by plus one
+    // else map all original subtitle streams
+    ...(subtitleStreamIndex !== undefined
+      ? [
+          "-map",
+          `0:${subtitleStreamIndex}`,
+          "-c:s:0",
+          "copy",
+          "-disposition:s:0",
+          "default",
+
+          "-map",
+          "0:a:0?",
+          "-c:s:1",
+          "copy",
+          "-disposition:s:1",
+          "0",
+
+          "-map",
+          "0:a:1?",
+          "-c:s:2",
+          "copy",
+          "-disposition:s:2",
+          "0",
+
+          "-map",
+          "0:a:2?",
+          "-c:s:3",
+          "copy",
+          "-disposition:s:3",
+          "0",
+
+          "-map",
+          "0:a:3?",
+          "-c:s:4",
+          "copy",
+          "-disposition:s:4",
+          "0",
+
+          "-map",
+          "0:a:4?",
+          "-c:s:5",
+          "copy",
+          "-disposition:s:5",
+          "0",
+
+          "-map",
+          "0:a:5?",
+          "-c:s:6",
+          "copy",
+          "-disposition:s:6",
+          "0",
+
+          "-map",
+          "0:a:6?",
+          "-c:s:7",
+          "copy",
+          "-disposition:s:7",
+          "0",
+
+          "-map",
+          "0:a:7?",
+          "-c:s:8",
+          "copy",
+          "-disposition:s:8",
+          "0",
+
+          "-map",
+          "0:a:8?",
+          "-c:s:9",
+          "copy",
+          "-disposition:s:9",
+          "0",
+
+          "-map",
+          "0:a:9?",
+          "-c:s:10",
+          "copy",
+          "-disposition:s:10",
+          "0",
+        ]
+      : ["-map", "0:s", "-c:s", "copy"]),
+
     outputFilePath,
   ];
 
@@ -411,54 +485,31 @@ async function main() {
 
   const outputFolderPath = config.outputFolderPath;
 
-  for (const movie of config.movies) {
-    movie.identifyingTitle = getMovieIdentifyingTitle(
-      movie.movieTitle,
-      movie.year
-    );
-    movie.outputFilePath = getMovieOutputFilePath(
-      movie.movieTitle,
-      movie.year,
-      outputFolderPath
+  for (const input of config.inputs) {
+    movie.outputFilePath = join(
+      outputFolderPath,
+      basename(input.inputFilePath)
     );
   }
 
-  for (const tvShowEpisode of config.tvShowEpisodes) {
-    tvShowEpisode.identifyingTitle = getTvShowEpisodeIdentifyingTitle(
-      tvShowEpisode.showTitle,
-      tvShowEpisode.season,
-      tvShowEpisode.episode,
-      tvShowEpisode.episodeTitle
-    );
-    tvShowEpisode.outputFilePath = getTvShowEpisodeOutputFilePath(
-      tvShowEpisode.showTitle,
-      tvShowEpisode.season,
-      tvShowEpisode.episode,
-      tvShowEpisode.episodeTitle,
-      outputFolderPath
-    );
-  }
+  const additionalSubtitlesNeeded = [];
 
-  for (const input of [...config.movies, ...config.tvShowEpisodes]) {
+  for (const input of config.inputs) {
     if (!existsSync(input.inputFilePath)) {
       console.error(`ERROR: ${input.inputFilePath} does not exist.`);
       process.exit(1);
     }
 
-    console.log(input.identifyingTitle);
     console.log(`Source: ${input.inputFilePath}`);
 
-    const {
-      videoStreamIndex,
-      audioStreamIndex,
-      subtitleStreamIndex,
-      subtitleFilePath,
-    } = await selectInputStreams(input.inputFilePath);
+    const { audioStreams, subtitleStreams } = getStreamsInfo(inputFilePath);
 
-    input.videoStreamIndex = videoStreamIndex;
-    input.audioStreamIndex = audioStreamIndex;
-    input.subtitleStreamIndex = subtitleStreamIndex;
-    input.subtitleFilePath = subtitleFilePath;
+    input.audioStreamIndex = await selectAudioStream(audioStreams);
+    input.subtitleStreamIndex = await selectSubtitleStream(subtitleStreams);
+
+    if (input.subtitleStreamIndex === undefined) {
+      additionalSubtitlesNeeded.push(input.inputFilePath);
+    }
   }
 
   let currentFileIndex = 0;
@@ -466,15 +517,11 @@ async function main() {
 
   for (const input of [...config.movies, ...config.tvShowEpisodes]) {
     const { exitCode, stderr } = await convert(
-      input.identifyingTitle,
       input.inputFilePath,
       input.outputFilePath,
-      input.videoStreamIndex,
       input.audioStreamIndex,
-      input.subtitleStreamIndex,
-      input.subtitleFilePath,
       ++currentFileIndex,
-      config.movies.length + config.tvShowEpisodes.length
+      config.inputs.length
     );
 
     if (exitCode > 0) {
@@ -490,6 +537,13 @@ async function main() {
       console.log(`\n${inputFilePath}\n${stderr}`);
     }
     process.exit(1);
+  }
+
+  if (additionalSubtitlesNeeded.length > 0) {
+    console.log("\nADDITIONAL SUBTITLES NEEDED:");
+    for (const inputFilePath of additionalSubtitlesNeeded) {
+      console.log(inputFilePath);
+    }
   }
 }
 

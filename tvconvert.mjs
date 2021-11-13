@@ -24,60 +24,6 @@ function printHelp() {
   console.log("  tvconvert.sh --print-config {configfile}.json");
 }
 
-function ensureValidFileName(string) {
-  return string.replace(/[<>:"/\\|?*\u0000-\u001F]/g, "");
-}
-
-function getMovieIdentifyingTitle(title, year) {
-  return `${title} (${year})`;
-}
-
-function getMovieOutputFilePath(title, year, outputFolderPath) {
-  return join(
-    outputFolderPath,
-    ensureValidFileName(`${getMovieIdentifyingTitle(title, year)}.mkv`)
-  );
-}
-
-function getPaddedSeasonOrEpisode(seasonOrEpisode) {
-  return seasonOrEpisode.toString().padStart(2, "0");
-}
-
-function getTvShowEpisodeIdentifyingTitle(
-  showTitle,
-  season,
-  episode,
-  episodeTitle
-) {
-  return [
-    showTitle,
-    `S${getPaddedSeasonOrEpisode(season)}E${getPaddedSeasonOrEpisode(episode)}`,
-    episodeTitle,
-  ].join(" - ");
-}
-
-function getTvShowEpisodeOutputFilePath(
-  showTitle,
-  season,
-  episode,
-  episodeTitle,
-  outputFolderPath
-) {
-  return join(
-    outputFolderPath,
-    ensureValidFileName(showTitle),
-    ensureValidFileName(`Season ${getPaddedSeasonOrEpisode(season)}`),
-    ensureValidFileName(
-      `${getTvShowEpisodeIdentifyingTitle(
-        showTitle,
-        season,
-        episode,
-        episodeTitle
-      )}.mkv`
-    )
-  );
-}
-
 function question(question) {
   const readLineInterface = createInterface({
     input: process.stdin,
@@ -188,12 +134,12 @@ function getContainerDurationSeconds(inputFilePath) {
 function logProgress(
   currentFileIndex,
   allFilesCount,
-  identifyingTitle,
+  inputFilePath,
   progressPercentageRounded,
   speed
 ) {
   console.log(
-    `[${currentFileIndex} / ${allFilesCount}] ${identifyingTitle} [${progressPercentageRounded}% at ${speed}]`
+    `[${currentFileIndex} / ${allFilesCount}] ${inputFilePath} [${progressPercentageRounded}% at ${speed}]`
   );
 }
 
@@ -251,6 +197,7 @@ async function convert(
     "256k",
     "-ac:a:0",
     "2",
+    '-filter:a:0 "acompressor=ratio=4,loudnorm"',
     "-metadata:s:a:0",
     "title=English 2.0 AAC (normalized and compressed)",
     "-metadata:s:a:0",
@@ -440,7 +387,7 @@ async function convert(
         logProgress(
           currentFileIndex,
           allFilesCount,
-          identifyingTitle,
+          inputFilePath,
           progressPercentageRounded,
           speed
         );
@@ -470,7 +417,7 @@ async function main() {
       args[0] !== "--config" &&
       args[0] !== "-p" &&
       args[0] !== "--print-config" &&
-      !args[1].endswith(".json"))
+      !args[1].endsWith(".json"))
   ) {
     printHelp();
     process.exit(1);
@@ -486,7 +433,7 @@ async function main() {
   const outputFolderPath = config.outputFolderPath;
 
   for (const input of config.inputs) {
-    movie.outputFilePath = join(
+    input.outputFilePath = join(
       outputFolderPath,
       basename(input.inputFilePath)
     );
@@ -502,7 +449,9 @@ async function main() {
 
     console.log(`Source: ${input.inputFilePath}`);
 
-    const { audioStreams, subtitleStreams } = getStreamsInfo(inputFilePath);
+    const { audioStreams, subtitleStreams } = getStreamsInfo(
+      input.inputFilePath
+    );
 
     input.audioStreamIndex = await selectAudioStream(audioStreams);
     input.subtitleStreamIndex = await selectSubtitleStream(subtitleStreams);
@@ -515,11 +464,12 @@ async function main() {
   let currentFileIndex = 0;
   const errors = [];
 
-  for (const input of [...config.movies, ...config.tvShowEpisodes]) {
+  for (const input of config.inputs) {
     const { exitCode, stderr } = await convert(
       input.inputFilePath,
       input.outputFilePath,
       input.audioStreamIndex,
+      input.subtitleStreamIndex,
       ++currentFileIndex,
       config.inputs.length
     );

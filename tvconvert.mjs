@@ -107,11 +107,16 @@ async function selectSubtitleStream(subtitleStreams) {
 
   let subtitleStreamIndex;
   do {
-    subtitleStreamIndex = await question("Select subtitle stream index: ");
+    subtitleStreamIndex = await question(
+      "Select subtitle stream index (leave empty for external file): "
+    );
   } while (
-    !subtitleStreams
-      .map((s) => s.index)
-      .includes(parseInt(subtitleStreamIndex, 10))
+    !(
+      subtitleStreams
+        .map((s) => s.index)
+        .includes(parseInt(subtitleStreamIndex, 10)) ||
+      subtitleStreamIndex === ""
+    )
   );
 
   return subtitleStreamIndex;
@@ -199,9 +204,7 @@ async function convert(
     "copy",
 
     // map the selected input audio stream to the first and default output audio stream
-    // transcode to 2.0 AAC (48kHz, 256kbps) and apply the following filters:
-    //   - acompressor (ratio = 4)
-    //   - loudnorm
+    // transcode to 2.0 AAC (48kHz, 256kbps) and apply the loudnorm filter with lra = 10
     "-map",
     `0:${audioStreamIndex}`,
     "-c:a:0",
@@ -213,9 +216,9 @@ async function convert(
     "-ac:a:0",
     "2",
     "-filter:a:0",
-    "acompressor=ratio=4,loudnorm",
+    "loudnorm=lra=10",
     "-metadata:s:a:0",
-    'title="English 2.0 AAC (normalized and compressed)"',
+    'title="English 2.0 AAC normalized"',
     "-metadata:s:a:0",
     "language=eng",
     "-disposition:a:0",
@@ -296,7 +299,7 @@ async function convert(
     //   map the selected input subtitle stream to the first and default output subtitle stream,
     //   and map all original subtitle streams shifted by plus one
     // else map all original subtitle streams
-    ...(subtitleStreamIndex !== undefined
+    ...(subtitleStreamIndex !== ""
       ? [
           "-map",
           `0:${subtitleStreamIndex}`,
@@ -306,70 +309,70 @@ async function convert(
           "default",
 
           "-map",
-          "0:a:0?",
+          "0:s:0?",
           "-c:s:1",
           "copy",
           "-disposition:s:1",
           "0",
 
           "-map",
-          "0:a:1?",
+          "0:s:1?",
           "-c:s:2",
           "copy",
           "-disposition:s:2",
           "0",
 
           "-map",
-          "0:a:2?",
+          "0:s:2?",
           "-c:s:3",
           "copy",
           "-disposition:s:3",
           "0",
 
           "-map",
-          "0:a:3?",
+          "0:s:3?",
           "-c:s:4",
           "copy",
           "-disposition:s:4",
           "0",
 
           "-map",
-          "0:a:4?",
+          "0:s:4?",
           "-c:s:5",
           "copy",
           "-disposition:s:5",
           "0",
 
           "-map",
-          "0:a:5?",
+          "0:s:5?",
           "-c:s:6",
           "copy",
           "-disposition:s:6",
           "0",
 
           "-map",
-          "0:a:6?",
+          "0:s:6?",
           "-c:s:7",
           "copy",
           "-disposition:s:7",
           "0",
 
           "-map",
-          "0:a:7?",
+          "0:s:7?",
           "-c:s:8",
           "copy",
           "-disposition:s:8",
           "0",
 
           "-map",
-          "0:a:8?",
+          "0:s:8?",
           "-c:s:9",
           "copy",
           "-disposition:s:9",
           "0",
 
           "-map",
-          "0:a:9?",
+          "0:s:9?",
           "-c:s:10",
           "copy",
           "-disposition:s:10",

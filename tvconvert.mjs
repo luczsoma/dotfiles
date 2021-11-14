@@ -3,10 +3,9 @@ import { existsSync, readFileSync, writeFileSync } from "fs";
 import { basename, dirname, join } from "path";
 import { createInterface } from "readline";
 
-const FFPROBE_BINARY = "/usr/local/ffmpeg/bin/ffprobe";
-const FFMPEG_BINARY = "/usr/local/ffmpeg/bin/ffmpeg";
-
 const EXAMPLE_CONFIG = {
+  ffmpeg_binary: "/usr/local/bin/ffmpeg",
+  ffprobe_binary: "/usr/local/bin/ffprobe",
   inputs: [
     {
       inputFilePath: "downloaded/The Matrix/The Matrix.mkv",
@@ -24,6 +23,17 @@ function printHelp() {
   console.log("  tvconvert.sh --print-config {configfile}.json");
 }
 
+function validateConfig(config) {
+  return (
+    config.ffmpeg_binary &&
+    config.ffprobe_binary &&
+    config.inputs &&
+    Array.isArray(config.inputs) &&
+    config.inputs.every((i) => i.inputFilePath) &&
+    config.outputFolderPath
+  );
+}
+
 function question(question) {
   const readLineInterface = createInterface({
     input: process.stdin,
@@ -38,9 +48,9 @@ function question(question) {
   });
 }
 
-function getStreamsInfo(inputFilePath) {
+function getStreamsInfo(inputFilePath, ffprobe_binary) {
   const { stdout } = spawnSync(
-    FFPROBE_BINARY,
+    ffprobe_binary,
     [
       "-hide_banner",
       "-loglevel",
@@ -111,9 +121,9 @@ function mkdirpForOutputFile(outputFilePath) {
   spawnSync("mkdir", ["-p", dirname(outputFilePath)]);
 }
 
-function getContainerDurationSeconds(inputFilePath) {
+function getContainerDurationSeconds(inputFilePath, ffprobe_binary) {
   const { stdout } = spawnSync(
-    FFPROBE_BINARY,
+    ffprobe_binary,
     [
       "-hide_banner",
       "-loglevel",
@@ -149,7 +159,9 @@ async function convert(
   audioStreamIndex,
   subtitleStreamIndex,
   currentFileIndex,
-  allFilesCount
+  allFilesCount,
+  ffprobe_binary,
+  ffmpeg_binary
 ) {
   console.log();
   console.log(
@@ -162,7 +174,10 @@ async function convert(
     "========================================================================"
   );
 
-  const containerDurationSeconds = getContainerDurationSeconds(inputFilePath);
+  const containerDurationSeconds = getContainerDurationSeconds(
+    inputFilePath,
+    ffprobe_binary
+  );
   mkdirpForOutputFile(outputFilePath);
 
   const globalArguments = [
@@ -183,29 +198,10 @@ async function convert(
     "-c:v",
     "copy",
 
-    // // map the selected input audio stream to the first and default output audio stream
-    // // transcode to 2.0 AAC (48kHz, 256kbps) and apply the following filters:
-    // //   - loudnorm
-    // //   - acompressor (ratio = 4)
-    // "-map",
-    // `0:${audioStreamIndex}`,
-    // "-c:a:0",
-    // "aac",
-    // "-ar:a:0",
-    // "48000",
-    // "-b:a:0",
-    // "256k",
-    // "-ac:a:0",
-    // "2",
-    // "-filter:a:0",
-    // "acompressor=ratio=4,loudnorm",
-    // "-metadata:s:a:0",
-    // 'title="English 2.0 AAC (normalized and compressed)"',
-    // "-metadata:s:a:0",
-    // "language=eng",
-    // "-disposition:a:0",
-    // "default",
-
+    // map the selected input audio stream to the first and default output audio stream
+    // transcode to 2.0 AAC (48kHz, 256kbps) and apply the following filters:
+    //   - acompressor (ratio = 4)
+    //   - loudnorm
     "-map",
     `0:${audioStreamIndex}`,
     "-c:a:0",
@@ -216,200 +212,85 @@ async function convert(
     "256k",
     "-ac:a:0",
     "2",
-    "-metadata:s:a:0",
-    'title="English 2.0 AAC"',
-    "-metadata:s:a:0",
-    "language=eng",
-
-    "-map",
-    `0:${audioStreamIndex}`,
-    "-c:a:1",
-    "aac",
-    "-ar:a:1",
-    "48000",
-    "-b:a:1",
-    "256k",
-    "-ac:a:1",
-    "2",
-    "-filter:a:1",
-    "loudnorm",
-    "-metadata:s:a:1",
-    'title="English 2.0 AAC (loudnorm)"',
-    "-metadata:s:a:1",
-    "language=eng",
-
-    "-map",
-    `0:${audioStreamIndex}`,
-    "-c:a:2",
-    "aac",
-    "-ar:a:2",
-    "48000",
-    "-b:a:2",
-    "256k",
-    "-ac:a:2",
-    "2",
-    "-filter:a:2",
-    "acompressor",
-    "-metadata:s:a:2",
-    'title="English 2.0 AAC (acompressor=ratio=2)"',
-    "-metadata:s:a:2",
-    "language=eng",
-
-    "-map",
-    `0:${audioStreamIndex}`,
-    "-c:a:3",
-    "aac",
-    "-ar:a:3",
-    "48000",
-    "-b:a:3",
-    "256k",
-    "-ac:a:3",
-    "2",
-    "-filter:a:3",
-    "acompressor=ratio=4",
-    "-metadata:s:a:3",
-    'title="English 2.0 AAC (acompressor=ratio=4)"',
-    "-metadata:s:a:3",
-    "language=eng",
-
-    "-map",
-    `0:${audioStreamIndex}`,
-    "-c:a:4",
-    "aac",
-    "-ar:a:4",
-    "48000",
-    "-b:a:4",
-    "256k",
-    "-ac:a:4",
-    "2",
-    "-filter:a:4",
-    "acompressor=ratio=2,loudnorm",
-    "-metadata:s:a:4",
-    'title="English 2.0 AAC (acompressor=ratio=2,loudnorm)"',
-    "-metadata:s:a:4",
-    "language=eng",
-
-    "-map",
-    `0:${audioStreamIndex}`,
-    "-c:a:5",
-    "aac",
-    "-ar:a:5",
-    "48000",
-    "-b:a:5",
-    "256k",
-    "-ac:a:5",
-    "2",
-    "-filter:a:5",
+    "-filter:a:0",
     "acompressor=ratio=4,loudnorm",
-    "-metadata:s:a:5",
-    'title="English 2.0 AAC (acompressor=ratio=4,loudnorm)"',
-    "-metadata:s:a:5",
+    "-metadata:s:a:0",
+    'title="English 2.0 AAC (normalized and compressed)"',
+    "-metadata:s:a:0",
     "language=eng",
+    "-disposition:a:0",
+    "default",
+
+    // map all original audio streams shifted by plus one
+    "-map",
+    "0:a:0?",
+    "-c:a:1",
+    "copy",
+    "-disposition:a:1",
+    "0",
 
     "-map",
-    `0:${audioStreamIndex}`,
+    "0:a:1?",
+    "-c:a:2",
+    "copy",
+    "-disposition:a:2",
+    "0",
+
+    "-map",
+    "0:a:2?",
+    "-c:a:3",
+    "copy",
+    "-disposition:a:3",
+    "0",
+
+    "-map",
+    "0:a:3?",
+    "-c:a:4",
+    "copy",
+    "-disposition:a:4",
+    "0",
+
+    "-map",
+    "0:a:4?",
+    "-c:a:5",
+    "copy",
+    "-disposition:a:5",
+    "0",
+
+    "-map",
+    "0:a:5?",
     "-c:a:6",
-    "aac",
-    "-ar:a:6",
-    "48000",
-    "-b:a:6",
-    "256k",
-    "-ac:a:6",
-    "2",
-    "-filter:a:6",
-    "loudnorm,acompressor=ratio=2",
-    "-metadata:s:a:6",
-    'title="English 2.0 AAC (loudnorm,acompressor=ratio=2)"',
-    "-metadata:s:a:6",
-    "language=eng",
+    "copy",
+    "-disposition:a:6",
+    "0",
 
     "-map",
-    `0:${audioStreamIndex}`,
+    "0:a:6?",
     "-c:a:7",
-    "aac",
-    "-ar:a:7",
-    "48000",
-    "-b:a:7",
-    "256k",
-    "-ac:a:7",
-    "2",
-    "-filter:a:7",
-    "loudnorm,acompressor=ratio=4",
-    "-metadata:s:a:7",
-    'title="English 2.0 AAC (loudnorm,acompressor=ratio=4)"',
-    "-metadata:s:a:7",
-    "language=eng",
+    "copy",
+    "-disposition:a:7",
+    "0",
 
-    // // map all original audio streams shifted by plus one
-    // "-map",
-    // "0:a:0?",
-    // "-c:a:1",
-    // "copy",
-    // "-disposition:a:1",
-    // "0",
+    "-map",
+    "0:a:7?",
+    "-c:a:8",
+    "copy",
+    "-disposition:a:8",
+    "0",
 
-    // "-map",
-    // "0:a:1?",
-    // "-c:a:2",
-    // "copy",
-    // "-disposition:a:2",
-    // "0",
+    "-map",
+    "0:a:8?",
+    "-c:a:9",
+    "copy",
+    "-disposition:a:9",
+    "0",
 
-    // "-map",
-    // "0:a:2?",
-    // "-c:a:3",
-    // "copy",
-    // "-disposition:a:3",
-    // "0",
-
-    // "-map",
-    // "0:a:3?",
-    // "-c:a:4",
-    // "copy",
-    // "-disposition:a:4",
-    // "0",
-
-    // "-map",
-    // "0:a:4?",
-    // "-c:a:5",
-    // "copy",
-    // "-disposition:a:5",
-    // "0",
-
-    // "-map",
-    // "0:a:5?",
-    // "-c:a:6",
-    // "copy",
-    // "-disposition:a:6",
-    // "0",
-
-    // "-map",
-    // "0:a:6?",
-    // "-c:a:7",
-    // "copy",
-    // "-disposition:a:7",
-    // "0",
-
-    // "-map",
-    // "0:a:7?",
-    // "-c:a:8",
-    // "copy",
-    // "-disposition:a:8",
-    // "0",
-
-    // "-map",
-    // "0:a:8?",
-    // "-c:a:9",
-    // "copy",
-    // "-disposition:a:9",
-    // "0",
-
-    // "-map",
-    // "0:a:9?",
-    // "-c:a:10",
-    // "copy",
-    // "-disposition:a:10",
-    // "0",
+    "-map",
+    "0:a:9?",
+    "-c:a:10",
+    "copy",
+    "-disposition:a:10",
+    "0",
 
     // if there is a selected subtitle stream,
     //   map the selected input subtitle stream to the first and default output subtitle stream,
@@ -506,7 +387,7 @@ async function convert(
   ];
 
   return new Promise((resolve) => {
-    const ffmpeg = spawn(FFMPEG_BINARY, ffmpegArguments);
+    const ffmpeg = spawn(ffmpeg_binary, ffmpegArguments);
 
     let progressPercentageRounded = 0;
     ffmpeg.stdout.setEncoding("utf8");
@@ -564,6 +445,10 @@ async function main() {
   }
 
   const config = JSON.parse(readFileSync(args[1], { encoding: "utf8" }));
+  if (!validateConfig(config)) {
+    console.error("Invalid configuration.");
+    process.exit(1);
+  }
 
   const outputFolderPath = config.outputFolderPath;
 
@@ -585,7 +470,8 @@ async function main() {
     console.log(`Source: ${input.inputFilePath}`);
 
     const { audioStreams, subtitleStreams } = getStreamsInfo(
-      input.inputFilePath
+      input.inputFilePath,
+      config.ffprobe_binary
     );
 
     input.audioStreamIndex = await selectAudioStream(audioStreams);
@@ -606,7 +492,9 @@ async function main() {
       input.audioStreamIndex,
       input.subtitleStreamIndex,
       ++currentFileIndex,
-      config.inputs.length
+      config.inputs.length,
+      config.ffprobe_binary,
+      config.ffmpeg_binary
     );
 
     if (exitCode > 0) {

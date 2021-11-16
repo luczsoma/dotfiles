@@ -1,16 +1,12 @@
 import { spawn, spawnSync } from "child_process";
 import { existsSync, readFileSync, writeFileSync } from "fs";
-import { basename, dirname, join } from "path";
+import { basename, join } from "path";
 import { createInterface } from "readline";
 
 const EXAMPLE_CONFIG = {
   ffmpeg_binary: "/usr/local/bin/ffmpeg",
   ffprobe_binary: "/usr/local/bin/ffprobe",
-  inputs: [
-    {
-      inputFilePath: "downloaded/The Matrix/The Matrix.mkv",
-    },
-  ],
+  inputs: ["downloaded/The Matrix/The Matrix.mkv"],
   outputFolderPath: "converted",
 };
 
@@ -24,14 +20,28 @@ function printHelp() {
 }
 
 function validateConfig(config) {
-  return (
-    config.ffmpeg_binary &&
-    config.ffprobe_binary &&
-    config.inputs &&
-    Array.isArray(config.inputs) &&
-    config.inputs.every((i) => i.inputFilePath) &&
-    config.outputFolderPath
-  );
+  if (!existsSync(config.ffmpeg_binary)) {
+    throw new Error("config.ffmpeg_binary is missing of doesn't exist");
+  }
+
+  if (!existsSync(config.ffprobe_binary)) {
+    throw new Error("config.ffprobe_binary is missing or doesn't exist");
+  }
+
+  if (!Array.isArray(config.inputs)) {
+    throw new Error("config.inputs is missing or not an array");
+  }
+
+  const nonExistingInputs = config.inputs.filter((i) => !existsSync(i));
+  if (nonExistingInputs.length > 0) {
+    throw new Error(
+      `The following inputs do not exist:\n${nonExistingInputs.join("\n")}`
+    );
+  }
+
+  if (!existsSync(config.outputFolderPath)) {
+    throw new Error("config.outputFolderPath does not exist");
+  }
 }
 
 function question(question) {
@@ -122,10 +132,6 @@ async function selectSubtitleStream(subtitleStreams) {
   return subtitleStreamIndex;
 }
 
-function mkdirpForOutputFile(outputFilePath) {
-  spawnSync("mkdir", ["-p", dirname(outputFilePath)]);
-}
-
 function getContainerDurationSeconds(inputFilePath, ffprobe_binary) {
   const { stdout } = spawnSync(
     ffprobe_binary,
@@ -183,7 +189,6 @@ async function convert(
     inputFilePath,
     ffprobe_binary
   );
-  mkdirpForOutputFile(outputFilePath);
 
   const globalArguments = [
     "-hide_banner",
@@ -448,10 +453,15 @@ async function main() {
   }
 
   const config = JSON.parse(readFileSync(args[1], { encoding: "utf8" }));
-  if (!validateConfig(config)) {
-    console.error("Invalid configuration.");
+
+  try {
+    validateConfig(config);
+  } catch (ex) {
+    console.error(ex.message);
     process.exit(1);
   }
+
+  config.inputs = config.inputs.map((i) => ({ inputFilePath: i }));
 
   const outputFolderPath = config.outputFolderPath;
 
@@ -465,11 +475,6 @@ async function main() {
   const additionalSubtitlesNeeded = [];
 
   for (const input of config.inputs) {
-    if (!existsSync(input.inputFilePath)) {
-      console.error(`ERROR: ${input.inputFilePath} does not exist.`);
-      process.exit(1);
-    }
-
     console.log(`Source: ${input.inputFilePath}`);
 
     const { audioStreams, subtitleStreams } = getStreamsInfo(
@@ -480,7 +485,7 @@ async function main() {
     input.audioStreamIndex = await selectAudioStream(audioStreams);
     input.subtitleStreamIndex = await selectSubtitleStream(subtitleStreams);
 
-    if (input.subtitleStreamIndex === undefined) {
+    if (input.subtitleStreamIndex === "") {
       additionalSubtitlesNeeded.push(input.inputFilePath);
     }
   }

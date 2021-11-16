@@ -234,7 +234,7 @@ async function convert(
     "-filter:a:0",
     "loudnorm=lra=10",
     "-metadata:s:a:0",
-    'title="AAC 2.0 (normalized)"',
+    "title=AAC 2.0 (normalized)",
     "-metadata:s:a:0",
     "language=eng",
     "-disposition:a:0",

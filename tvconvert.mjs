@@ -220,7 +220,7 @@ async function convert(
     "copy",
 
     // map the selected input audio stream to the first and default output audio stream
-    // transcode to 2.0 AAC (48kHz, 256kbps) and apply the loudnorm filter with lra = 10
+    // downmix to 2.0, transcode to AAC (48kHz, 256kbps), and apply the loudnorm filter with lra = 10
     "-map",
     `0:${audioStreamIndex}`,
     "-c:a:0",
@@ -234,7 +234,7 @@ async function convert(
     "-filter:a:0",
     "loudnorm=lra=10",
     "-metadata:s:a:0",
-    'title="English 2.0 AAC normalized"',
+    'title="AAC 2.0 (normalized)"',
     "-metadata:s:a:0",
     "language=eng",
     "-disposition:a:0",

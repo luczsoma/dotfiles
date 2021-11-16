@@ -42,6 +42,17 @@ function validateConfig(config) {
   if (!existsSync(config.outputFolderPath)) {
     throw new Error("config.outputFolderPath does not exist");
   }
+
+  const alreadyExistingOutputs = config.inputs.filter((i) =>
+    existsSync(join(config.outputFolderPath, basename(i)))
+  );
+  if (alreadyExistingOutputs.length > 0) {
+    throw new Error(
+      `The following outputs already exist:\n${alreadyExistingOutputs.join(
+        "\n"
+      )}`
+    );
+  }
 }
 
 function question(question) {

@@ -69,13 +69,14 @@ function question(question) {
   });
 }
 
-function getStreamsInfo(inputFilePath, ffprobe_binary) {
+function getContainerInfo(inputFilePath, ffprobe_binary) {
   const { stdout } = spawnSync(
     ffprobe_binary,
     [
       "-hide_banner",
       "-loglevel",
       "warning",
+      "-show_format",
       "-show_streams",
       "-print_format",
       "json",
@@ -86,7 +87,9 @@ function getStreamsInfo(inputFilePath, ffprobe_binary) {
     }
   );
 
-  const streams = JSON.parse(stdout).streams;
+  const { format, streams } = JSON.parse(stdout);
+
+  const containerDurationSeconds = format.duration;
 
   const audioStreams = streams
     .filter((s) => s.codec_type === "audio")
@@ -107,7 +110,7 @@ function getStreamsInfo(inputFilePath, ffprobe_binary) {
       title: s.tags && s.tags.title,
     }));
 
-  return { audioStreams, subtitleStreams };
+  return { containerDurationSeconds, audioStreams, subtitleStreams };
 }
 
 async function selectAudioStream(audioStreams) {
@@ -129,7 +132,7 @@ async function selectSubtitleStream(subtitleStreams) {
   let subtitleStreamIndex;
   do {
     subtitleStreamIndex = await question(
-      "Select subtitle stream index (leave empty for external file): "
+      "Select subtitle stream index (leave empty if using external file): "
     );
   } while (
     !(
@@ -141,26 +144,6 @@ async function selectSubtitleStream(subtitleStreams) {
   );
 
   return subtitleStreamIndex;
-}
-
-function getContainerDurationSeconds(inputFilePath, ffprobe_binary) {
-  const { stdout } = spawnSync(
-    ffprobe_binary,
-    [
-      "-hide_banner",
-      "-loglevel",
-      "warning",
-      "-show_entries",
-      "format",
-      "-print_format",
-      "json",
-      inputFilePath,
-    ],
-    {
-      encoding: "utf8",
-    }
-  );
-  return JSON.parse(stdout).format.duration;
 }
 
 function logProgress(
@@ -178,11 +161,11 @@ function logProgress(
 async function convert(
   inputFilePath,
   outputFilePath,
+  containerDurationSeconds,
   audioStreamIndex,
   subtitleStreamIndex,
   currentFileIndex,
   allFilesCount,
-  ffprobe_binary,
   ffmpeg_binary
 ) {
   console.log();
@@ -194,11 +177,6 @@ async function convert(
   console.log(`Destination: ${outputFilePath}`);
   console.log(
     "========================================================================"
-  );
-
-  const containerDurationSeconds = getContainerDurationSeconds(
-    inputFilePath,
-    ffprobe_binary
   );
 
   const globalArguments = [
@@ -234,7 +212,7 @@ async function convert(
     "-filter:a:0",
     "loudnorm=lra=10",
     "-metadata:s:a:0",
-    "title=AAC 2.0 (normalized)",
+    "title=AAC 2.0 @ 256 kbps (normalized)",
     "-metadata:s:a:0",
     "language=eng",
     "-disposition:a:0",
@@ -407,16 +385,20 @@ async function convert(
 
   return new Promise((resolve) => {
     const ffmpeg = spawn(ffmpeg_binary, ffmpegArguments);
-
-    let progressPercentageRounded = 0;
     ffmpeg.stdout.setEncoding("utf8");
+
+    const getProgressPercentageRounded = (normalizedProgress) =>
+      (normalizedProgress * 100).toFixed(2);
+
+    let progressPercentageRounded = getProgressPercentageRounded(0);
     ffmpeg.stdout.on("data", (data) => {
       const outTimeMicroseconds = data.match(/out_time_us=(\d+)\n/)[1];
       const speed = data.match(/speed=(.+)\n/)[1];
 
       const outTimeSeconds = outTimeMicroseconds / 1000000;
       const progress = outTimeSeconds / containerDurationSeconds;
-      const newProgressPercentageRounded = (progress * 100).toFixed(2);
+      const newProgressPercentageRounded =
+        getProgressPercentageRounded(progress);
       if (newProgressPercentageRounded !== progressPercentageRounded) {
         progressPercentageRounded = newProgressPercentageRounded;
         logProgress(
@@ -488,11 +470,10 @@ async function main() {
   for (const input of config.inputs) {
     console.log(`Source: ${input.inputFilePath}`);
 
-    const { audioStreams, subtitleStreams } = getStreamsInfo(
-      input.inputFilePath,
-      config.ffprobe_binary
-    );
+    const { containerDurationSeconds, audioStreams, subtitleStreams } =
+      getContainerInfo(input.inputFilePath, config.ffprobe_binary);
 
+    input.containerDurationSeconds = containerDurationSeconds;
     input.audioStreamIndex = await selectAudioStream(audioStreams);
     input.subtitleStreamIndex = await selectSubtitleStream(subtitleStreams);
 
@@ -508,11 +489,11 @@ async function main() {
     const { exitCode, stderr } = await convert(
       input.inputFilePath,
       input.outputFilePath,
+      input.containerDurationSeconds,
       input.audioStreamIndex,
       input.subtitleStreamIndex,
       ++currentFileIndex,
       config.inputs.length,
-      config.ffprobe_binary,
       config.ffmpeg_binary
     );
 

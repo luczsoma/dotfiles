@@ -114,7 +114,15 @@ function getContainerInfo(inputFilePath, ffprobe_binary) {
 }
 
 async function selectAudioStream(audioStreams) {
-  console.log(audioStreams);
+  console.table(
+    audioStreams.map((stream) => ({
+      Index: stream.index,
+      Language: stream.language,
+      Codec: stream.codec_name,
+      Channels: stream.channels,
+      Title: stream.title,
+    }))
+  );
 
   let audioStreamIndex;
   do {
@@ -127,7 +135,15 @@ async function selectAudioStream(audioStreams) {
 }
 
 async function selectSubtitleStream(subtitleStreams) {
-  console.log(subtitleStreams.filter((s) => s.codec_name === "subrip"));
+  console.table(
+    subtitleStreams
+      .filter((s) => s.codec_name === "subrip")
+      .map((stream) => ({
+        Index: stream.index,
+        Language: stream.language,
+        Title: stream.title,
+      }))
+  );
 
   let subtitleStreamIndex;
   do {

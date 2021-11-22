@@ -124,14 +124,18 @@ async function selectAudioStream(audioStreams) {
     }))
   );
 
-  let audioStreamIndex;
+  let selectedAudioStreamIndexCandidate;
   do {
-    audioStreamIndex = await question("Select audio stream index: ");
+    selectedAudioStreamIndexCandidate = await question(
+      "Select audio stream index: "
+    );
   } while (
-    !audioStreams.map((s) => s.index).includes(parseInt(audioStreamIndex, 10))
+    !audioStreams
+      .map((s) => s.index)
+      .includes(Number.parseInt(selectedAudioStreamIndexCandidate, 10))
   );
 
-  return audioStreamIndex;
+  return Number.parseInt(selectedAudioStreamIndexCandidate, 10);
 }
 
 async function selectSubtitleStream(subtitleStreams) {
@@ -145,21 +149,23 @@ async function selectSubtitleStream(subtitleStreams) {
       }))
   );
 
-  let subtitleStreamIndex;
+  let selectedSubtitleStreamIndexCandidate;
   do {
-    subtitleStreamIndex = await question(
-      "Select subtitle stream index (leave empty if using external file): "
+    selectedSubtitleStreamIndexCandidate = await question(
+      "Select subtitle stream index (leave empty if using external subtitles): "
     );
   } while (
     !(
       subtitleStreams
         .map((s) => s.index)
-        .includes(parseInt(subtitleStreamIndex, 10)) ||
-      subtitleStreamIndex === ""
+        .includes(Number.parseInt(selectedSubtitleStreamIndexCandidate, 10)) ||
+      selectedSubtitleStreamIndexCandidate === ""
     )
   );
 
-  return subtitleStreamIndex;
+  return selectedSubtitleStreamIndexCandidate !== ""
+    ? Number.parseInt(selectedSubtitleStreamIndexCandidate, 10)
+    : null;
 }
 
 function logProgress(
@@ -178,8 +184,8 @@ async function convert(
   inputFilePath,
   outputFilePath,
   containerDurationSeconds,
-  audioStreamIndex,
-  subtitleStreamIndex,
+  selectedAudioStreamIndex,
+  selectedSubtitleStreamIndex,
   currentFileIndex,
   allFilesCount,
   ffmpeg_binary
@@ -206,17 +212,16 @@ async function convert(
 
   const inputFileArguments = ["-i", inputFilePath];
 
-  const outputFileArguments = [
-    // copy video streams
-    "-map",
-    "0:v",
-    "-c:v",
-    "copy",
+  const outputFileArguments = [];
 
-    // map the selected input audio stream to the first and default output audio stream
-    // downmix to 2.0, transcode to AAC (48kHz, 256kbps), and apply the loudnorm filter with lra = 10
+  // copy video streams
+  outputFileArguments.push("-map", "0:v", "-c:v", "copy");
+
+  // map the selected input audio stream to the first and default output audio stream
+  // downmix to 2.0, transcode to AAC (48kHz, 256kbps), and apply the loudnorm filter with lra = 10
+  outputFileArguments.push(
     "-map",
-    `0:${audioStreamIndex}`,
+    `0:${selectedAudioStreamIndex}`,
     "-c:a:0",
     "aac",
     "-ar:a:0",
@@ -230,166 +235,60 @@ async function convert(
     "-metadata:s:a:0",
     "title=AAC 2.0 (normalized)",
     "-disposition:a:0",
-    "default",
+    "default"
+  );
 
-    // map all original audio streams shifted by plus one
-    "-map",
-    "0:a:0?",
-    "-c:a:1",
-    "copy",
-    "-disposition:a:1",
-    "0",
+  // map all original audio streams shifted by plus one
+  for (
+    let iAudioInputStream = 0, iAudioOutputStream = 1;
+    iAudioInputStream < 100;
+    iAudioInputStream++, iAudioOutputStream++
+  ) {
+    outputFileArguments.push(
+      "-map",
+      `0:a:${iAudioInputStream}?`,
+      `-c:a:${iAudioOutputStream}`,
+      "copy",
+      `-disposition:a:${iAudioOutputStream}`,
+      "0"
+    );
+  }
 
-    "-map",
-    "0:a:1?",
-    "-c:a:2",
-    "copy",
-    "-disposition:a:2",
-    "0",
+  // if there is a selected subtitle stream,
+  //   map the selected input subtitle stream to the first and default output subtitle stream,
+  //   then map all original subtitle streams shifted by plus one (except the selected one)
+  // else map all original subtitle streams
+  if (selectedSubtitleStreamIndex !== null) {
+    outputFileArguments.push(
+      "-map",
+      `0:${selectedSubtitleStreamIndex}`,
+      "-c:s:0",
+      "copy",
+      "-disposition:s:0",
+      "default"
+    );
 
-    "-map",
-    "0:a:2?",
-    "-c:a:3",
-    "copy",
-    "-disposition:a:3",
-    "0",
+    for (
+      let iSubtitleInputStream = 0, iSubtitleOutputStream = 1;
+      iSubtitleInputStream < 100;
+      iSubtitleInputStream++, iSubtitleOutputStream++
+    ) {
+      if (iSubtitleInputStream === selectedSubtitleStreamIndex) {
+        iSubtitleInputStream++;
+      }
 
-    "-map",
-    "0:a:3?",
-    "-c:a:4",
-    "copy",
-    "-disposition:a:4",
-    "0",
-
-    "-map",
-    "0:a:4?",
-    "-c:a:5",
-    "copy",
-    "-disposition:a:5",
-    "0",
-
-    "-map",
-    "0:a:5?",
-    "-c:a:6",
-    "copy",
-    "-disposition:a:6",
-    "0",
-
-    "-map",
-    "0:a:6?",
-    "-c:a:7",
-    "copy",
-    "-disposition:a:7",
-    "0",
-
-    "-map",
-    "0:a:7?",
-    "-c:a:8",
-    "copy",
-    "-disposition:a:8",
-    "0",
-
-    "-map",
-    "0:a:8?",
-    "-c:a:9",
-    "copy",
-    "-disposition:a:9",
-    "0",
-
-    "-map",
-    "0:a:9?",
-    "-c:a:10",
-    "copy",
-    "-disposition:a:10",
-    "0",
-
-    // if there is a selected subtitle stream,
-    //   map the selected input subtitle stream to the first and default output subtitle stream,
-    //   and map all original subtitle streams shifted by plus one
-    // else map all original subtitle streams
-    ...(subtitleStreamIndex !== ""
-      ? [
-          "-map",
-          `0:${subtitleStreamIndex}`,
-          "-c:s:0",
-          "copy",
-          "-disposition:s:0",
-          "default",
-
-          "-map",
-          "0:s:0?",
-          "-c:s:1",
-          "copy",
-          "-disposition:s:1",
-          "0",
-
-          "-map",
-          "0:s:1?",
-          "-c:s:2",
-          "copy",
-          "-disposition:s:2",
-          "0",
-
-          "-map",
-          "0:s:2?",
-          "-c:s:3",
-          "copy",
-          "-disposition:s:3",
-          "0",
-
-          "-map",
-          "0:s:3?",
-          "-c:s:4",
-          "copy",
-          "-disposition:s:4",
-          "0",
-
-          "-map",
-          "0:s:4?",
-          "-c:s:5",
-          "copy",
-          "-disposition:s:5",
-          "0",
-
-          "-map",
-          "0:s:5?",
-          "-c:s:6",
-          "copy",
-          "-disposition:s:6",
-          "0",
-
-          "-map",
-          "0:s:6?",
-          "-c:s:7",
-          "copy",
-          "-disposition:s:7",
-          "0",
-
-          "-map",
-          "0:s:7?",
-          "-c:s:8",
-          "copy",
-          "-disposition:s:8",
-          "0",
-
-          "-map",
-          "0:s:8?",
-          "-c:s:9",
-          "copy",
-          "-disposition:s:9",
-          "0",
-
-          "-map",
-          "0:s:9?",
-          "-c:s:10",
-          "copy",
-          "-disposition:s:10",
-          "0",
-        ]
-      : ["-map", "0:s", "-c:s", "copy"]),
-
-    outputFilePath,
-  ];
+      outputFileArguments.push(
+        "-map",
+        `0:s:${iSubtitleInputStream}?`,
+        `-c:s:${iSubtitleOutputStream}`,
+        "copy",
+        `-disposition:s:${iSubtitleOutputStream}`,
+        "0"
+      );
+    }
+  } else {
+    outputFileArguments.push("-map", "0:s", "-c:s", "copy");
+  }
 
   const ffmpegArguments = [
     ...globalArguments,
@@ -409,7 +308,7 @@ async function convert(
       const outTimeMicroseconds = data.match(/out_time_us=(\d+)\n/)[1];
       const speed = data.match(/speed=(.+)\n/)[1];
 
-      const outTimeSeconds = outTimeMicroseconds / 1000000;
+      const outTimeSeconds = outTimeMicroseconds / 1e6;
       const progress = outTimeSeconds / containerDurationSeconds;
       const newProgressPercentageRounded =
         getProgressPercentageRounded(progress);
@@ -488,11 +387,13 @@ async function main() {
       getContainerInfo(input.inputFilePath, config.ffprobe_binary);
 
     input.containerDurationSeconds = containerDurationSeconds;
-    input.audioStreamIndex = await selectAudioStream(audioStreams);
-    input.subtitleStreamIndex = await selectSubtitleStream(subtitleStreams);
+    input.selectedAudioStreamIndex = await selectAudioStream(audioStreams);
+    input.selectedSubtitleStreamIndex = await selectSubtitleStream(
+      subtitleStreams
+    );
 
-    if (input.subtitleStreamIndex === "") {
-      additionalSubtitlesNeeded.push(input.inputFilePath);
+    if (input.selectedSubtitleStreamIndex === null) {
+      additionalSubtitlesNeeded.push(input.outputFilePath);
     }
   }
 
@@ -504,8 +405,8 @@ async function main() {
       input.inputFilePath,
       input.outputFilePath,
       input.containerDurationSeconds,
-      input.audioStreamIndex,
-      input.subtitleStreamIndex,
+      input.selectedAudioStreamIndex,
+      input.selectedSubtitleStreamIndex,
       ++currentFileIndex,
       config.inputs.length,
       config.ffmpeg_binary

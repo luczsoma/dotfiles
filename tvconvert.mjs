@@ -290,6 +290,8 @@ async function convert(
     outputFileArguments.push("-map", "0:s", "-c:s", "copy");
   }
 
+  outputFileArguments.push(outputFilePath);
+
   const ffmpegArguments = [
     ...globalArguments,
     ...inputFileArguments,

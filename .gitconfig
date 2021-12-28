@@ -50,3 +50,5 @@
   sort = version:refname
 [pull]
   rebase = false
+[init]
+	defaultBranch = main

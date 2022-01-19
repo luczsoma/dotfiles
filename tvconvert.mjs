@@ -287,7 +287,7 @@ async function convert(
       );
     }
   } else {
-    outputFileArguments.push("-map", "0:s", "-c:s", "copy");
+    outputFileArguments.push("-map", "0:s?", "-c:s", "copy");
   }
 
   outputFileArguments.push(outputFilePath);

@@ -4,8 +4,8 @@ import { basename, join } from "path";
 import { createInterface } from "readline";
 
 const EXAMPLE_CONFIG = {
-  ffmpeg_binary: "/usr/local/bin/ffmpeg",
-  ffprobe_binary: "/usr/local/bin/ffprobe",
+  ffmpegBinary: "/usr/local/bin/ffmpeg",
+  ffprobeBinary: "/usr/local/bin/ffprobe",
   inputs: ["downloaded/The Matrix/The Matrix.mkv"],
   outputFolderPath: "converted",
 };
@@ -20,12 +20,12 @@ function printHelp() {
 }
 
 function validateConfig(config) {
-  if (!existsSync(config.ffmpeg_binary)) {
-    throw new Error("config.ffmpeg_binary is missing of doesn't exist");
+  if (!existsSync(config.ffmpegBinary)) {
+    throw new Error("config.ffmpegBinary is missing of doesn't exist");
   }
 
-  if (!existsSync(config.ffprobe_binary)) {
-    throw new Error("config.ffprobe_binary is missing or doesn't exist");
+  if (!existsSync(config.ffprobeBinary)) {
+    throw new Error("config.ffprobeBinary is missing or doesn't exist");
   }
 
   if (!Array.isArray(config.inputs)) {
@@ -69,9 +69,9 @@ function question(question) {
   });
 }
 
-function getContainerInfo(inputFilePath, ffprobe_binary) {
+function getContainerInfo(inputFilePath, ffprobeBinary) {
   const { stdout } = spawnSync(
-    ffprobe_binary,
+    ffprobeBinary,
     [
       "-hide_banner",
       "-loglevel",
@@ -188,7 +188,7 @@ async function convert(
   selectedSubtitleStreamIndex,
   currentFileIndex,
   allFilesCount,
-  ffmpeg_binary
+  ffmpegBinary
 ) {
   console.log();
   console.log(
@@ -299,7 +299,7 @@ async function convert(
   ];
 
   return new Promise((resolve) => {
-    const ffmpeg = spawn(ffmpeg_binary, ffmpegArguments);
+    const ffmpeg = spawn(ffmpegBinary, ffmpegArguments);
     ffmpeg.stdout.setEncoding("utf8");
 
     const getProgressPercentageRounded = (normalizedProgress) =>
@@ -386,7 +386,7 @@ async function main() {
     console.log(`Source: ${input.inputFilePath}`);
 
     const { containerDurationSeconds, audioStreams, subtitleStreams } =
-      getContainerInfo(input.inputFilePath, config.ffprobe_binary);
+      getContainerInfo(input.inputFilePath, config.ffprobeBinary);
 
     input.containerDurationSeconds = containerDurationSeconds;
     input.selectedAudioStreamIndex = await selectAudioStream(audioStreams);
@@ -411,7 +411,7 @@ async function main() {
       input.selectedSubtitleStreamIndex,
       ++currentFileIndex,
       config.inputs.length,
-      config.ffmpeg_binary
+      config.ffmpegBinary
     );
 
     if (exitCode > 0) {

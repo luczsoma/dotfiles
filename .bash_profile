@@ -125,8 +125,9 @@ export PATH="$PATH:/Applications/Visual Studio Code.app/Contents/Resources/app/b
 
 # Loading NVM and its bash complation
 export NVM_DIR="$HOME/.nvm"
-[ -s "/usr/local/opt/nvm/nvm.sh" ] && . "/usr/local/opt/nvm/nvm.sh"                           # This loads nvm
-[ -s "/usr/local/opt/nvm/etc/bash_completion" ] && . "/usr/local/opt/nvm/etc/bash_completion" # This loads nvm bash_completion
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
+
 
 # Loading pyenv
 if command -v pyenv 1>/dev/null 2>&1; then
@@ -148,7 +149,7 @@ export DICPATH=~/projects/magyarispell/hu_HU
 export JAVA_HOME=$(/usr/libexec/java_home)
 
 # OpenSSL 1.1 instead of the OS default LibreSSL
-export PATH="/usr/local/opt/openssl@1.1/bin:$PATH"
+export PATH="/opt/homebrew/opt/openssl@1.1/bin:$PATH"
 
 # GetText
 export PATH="/usr/local/opt/gettext/bin:$PATH"
@@ -158,3 +159,6 @@ export BASH_SILENCE_DEPRECATION_WARNING=1
 
 # Neo4j
 export NEO4J_HOME="/Applications/neo4j-enterprise-4.0.3"
+
+# Homebrew
+eval "$(/opt/homebrew/bin/brew shellenv)"

@@ -88,11 +88,11 @@ function vault() {
     case $1 in
     o | open)
         keybase pgp verify --infile vault --detached vault.asc --signed-by somalucz &&
-            veracrypt --mount --mount-options=timestamp vault &&
+            /Applications/VeraCrypt.app/Contents/MacOS/VeraCrypt --mount --mount-options=timestamp vault &&
             open /Volumes/VAULT
         ;;
     c | close)
-        veracrypt --dismount vault &&
+        /Applications/VeraCrypt.app/Contents/MacOS/VeraCrypt --dismount vault &&
             keybase pgp sign --infile vault --detached --key 01012da5d71f8646cb4945c61c807fc656609d49f3486008d7b08f23b7ccacc391a30a >vault.asc
         ;;
     h | help)

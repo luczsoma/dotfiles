@@ -1,6 +1,7 @@
 [core]
   autocrlf = input
   editor = vim
+  excludesFile = ~/.gitignore_global
 [user]
   name = Soma Lucz
   useConfigOnly = true
@@ -22,6 +23,7 @@
   sh = stash
   su = submodule update --init --recursive
   md = !git fetch && git merge origin/devel
+  sw = switch
 [push]
   default = simple
 [pager]

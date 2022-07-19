@@ -149,7 +149,7 @@ export DICPATH=~/projects/magyarispell/hu_HU
 export JAVA_HOME=$(/usr/libexec/java_home)
 
 # OpenSSL 1.1 instead of the OS default LibreSSL
-export PATH="/opt/homebrew/opt/openssl@1.1/bin:$PATH"
+export PATH="/usr/local/opt/openssl@1.1/bin:$PATH"
 
 # GetText
 export PATH="/usr/local/opt/gettext/bin:$PATH"
@@ -161,7 +161,11 @@ export BASH_SILENCE_DEPRECATION_WARNING=1
 export NEO4J_HOME="/Applications/neo4j-enterprise-4.0.3"
 
 # Homebrew
-eval "$(/opt/homebrew/bin/brew shellenv)"
+if [[ $(uname -p) == 'arm' ]]; then
+    eval "$(/opt/homebrew/bin/brew shellenv)"
+else
+    eval "$(/usr/local/Homebrew/bin/brew shellenv)"
+fi
 
 ###-begin-npm-completion-###
 #

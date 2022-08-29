@@ -1,56 +1,55 @@
 [core]
-  autocrlf = input
-  editor = vim
-  excludesFile = ~/.gitignore_global
+	autocrlf = input
+	editor = vim
+	excludesFile = ~/.gitignore_global
+	pager = diff-so-fancy | less --tabs=4 -RFX
 [user]
-  name = Soma Lucz
-  useConfigOnly = true
+	name = Soma Lucz
+	useConfigOnly = true
 [commit]
-  template = ~/.gitmessage
+	template = ~/.gitmessage
 [alias]
-  st = status
-  ci = commit
-  co = checkout
-  br = branch
-  m = merge
-  f = fetch
-  r = rebase
-  rs = reset
-  hist = log --graph --date=short --pretty=format:\"%Cgreen%h %Cred%ad %Creset%s %Cblue%d %Cred[%an]\"
-  pushf = push --force-with-lease
-  d = diff --word-diff
-  quick-stats = ! /usr/local/bin/git-quick-stats
-  sh = stash
-  su = submodule update --init --recursive
-  md = !git fetch && git merge origin/devel
-  sw = switch
+	st = status
+	ci = commit
+	co = checkout
+	br = branch
+	m = merge
+	f = fetch
+	r = rebase
+	rs = reset
+	hist = log --graph --date=short --pretty=format:\"%Cgreen%h %Cred%ad %Creset%s %Cblue%d %Cred[%an]\"
+	pushf = push --force-with-lease
+	d = diff --word-diff
+	quick-stats = ! /usr/local/bin/git-quick-stats
+	sh = stash
+	su = submodule update --init --recursive
+	sw = switch
 [push]
-  default = simple
-[pager]
-  # log = diff-highlight | less
-  # show = diff-highlight | less
-  # diff = diff-highlight | less
+	default = simple
 [color]
-  ui = always
-[color "diff-highlight"]
-  oldNormal = #ff0000 bold
-  oldHighlight = #ff0000 bold
-  newNormal = #00ff00 bold
-  newHighlight = #00ff00 bold
-[color "diff"]
-  commit = green
-  meta = yellow
-  frag = cyan
-  old = red
-  new = green
-  whitespace = red reverse
+	ui = true
 [diff]
-  renameLimit = 100000
+	renameLimit = 100000
 [fetch]
-  prune = true
+	prune = true
 [tag]
-  sort = version:refname
+	sort = version:refname
 [pull]
-  rebase = false
+	rebase = false
 [init]
 	defaultBranch = main
+[interactive]
+	diffFilter = diff-so-fancy --patch
+[color "diff-highlight"]
+	oldNormal = red bold
+	oldHighlight = red bold 52
+	newNormal = green bold
+	newHighlight = green bold 22
+[color "diff"]
+	meta = 11
+	frag = magenta bold
+	func = 146 bold
+	commit = yellow bold
+	old = red bold
+	new = green bold
+	whitespace = red reverse

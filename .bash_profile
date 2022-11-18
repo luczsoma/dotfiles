@@ -41,33 +41,6 @@ function dot2png() {
     done
 }
 
-# Count lines of code in a GitHub repository
-function cloc-github() {
-    REPO_NAME=temp-linecount-repo-NN27xTyrk0OdJuQ1RVUc
-    git clone --depth 1 "$1" ${REPO_NAME} &&
-        cloc ${REPO_NAME} &&
-        rm -rf ${REPO_NAME}
-}
-
-# Count lines of code in a GitHub repository
-function jsfilescount() {
-    find ./"$1" -iname "*.js" | wc -l
-}
-
-# Calculating password alphabet-related stuff
-function pwabc() {
-    python -c 'import string
-import sys
-modulo = 6
-if len(sys.argv) == 2:
-	char = sys.argv[1]
-	if len(char) == 1 and char.isalpha():
-		alphabetIndex = string.ascii_lowercase.index(char.lower()) + 1
-		result = alphabetIndex % modulo
-		number = result if result > 0 else modulo
-		print(number)' $1
-}
-
 function jdk() {
     if [[ $# -eq 0 ]]; then
         /usr/libexec/java_home -V
@@ -81,23 +54,38 @@ function jdk() {
 # Handling personal vault
 function vault() {
     if [[ $# -ne 1 ]]; then
-        return
+        echo "Usage:"
+        echo "vault o|open"
+        echo "vault s|save-and-delete"
+        echo "vault d|delete"
+        return 1
     fi
 
-    pushd ~/Vault
+    pushd ~/Desktop
     case $1 in
     o | open)
-        keybase pgp verify --infile vault --detached vault.asc --signed-by somalucz &&
-            /Applications/VeraCrypt.app/Contents/MacOS/VeraCrypt --mount --mount-options=timestamp vault &&
-            open /Volumes/VAULT
+        if [[ ! -d Vault ]]; then
+            age --decrypt --output Vault.zip ~/Vault/vault
+            unzip -q Vault.zip
+        fi
+        rm -f Vault.zip
+        open Vault
         ;;
-    c | close)
-        /Applications/VeraCrypt.app/Contents/MacOS/VeraCrypt --dismount vault &&
-            keybase pgp sign --infile vault --detached --key 01012da5d71f8646cb4945c61c807fc656609d49f3486008d7b08f23b7ccacc391a30a >vault.asc
+    s | save-and-delete)
+        if [[ -d Vault ]]; then
+            zip --quiet --recurse-paths Vault.zip Vault
+            rm -r Vault
+            age --encrypt --passphrase --output ~/Vault/vault Vault.zip
+        fi
+        rm -f Vault.zip
         ;;
-    h | help)
-        echo "o|open"
-        echo "c|close"
+    d | delete)
+        read -p "Delete Vault without saving? (y/Y) " -n 1
+        echo
+        if [[ $REPLY =~ ^[Yy]$ ]]
+        then
+            rm -rf Vault
+        fi
         ;;
     esac
     popd

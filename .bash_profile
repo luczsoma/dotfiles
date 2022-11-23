@@ -53,42 +53,47 @@ function jdk() {
 
 # Handling personal vault
 function vault() {
+    USAGE_MESSAGE="Usage:\nvault o|open\nvault s|save-and-delete\nvault d|delete\n"
+
     if [[ $# -ne 1 ]]; then
-        echo "Usage:"
-        echo "vault o|open"
-        echo "vault s|save-and-delete"
-        echo "vault d|delete"
+        printf "${USAGE_MESSAGE}"
         return 1
     fi
 
-    pushd ~/Desktop
     case $1 in
     o | open)
+        pushd ~/Desktop
         if [[ ! -d Vault ]]; then
-            age --decrypt --output Vault.zip ~/Vault/vault
-            unzip -q Vault.zip
+            age --decrypt --output Vault.zip ~/Vault/vault &&
+            unzip -q Vault.zip &&
+            open Vault
         fi
         rm -f Vault.zip
-        open Vault
+        popd
         ;;
     s | save-and-delete)
+        pushd ~/Desktop
         if [[ -d Vault ]]; then
-            zip --quiet --recurse-paths Vault.zip Vault
+            zip --quiet --recurse-paths Vault.zip Vault &&
+            age --encrypt --passphrase --output ~/Vault/vault Vault.zip &&
             rm -r Vault
-            age --encrypt --passphrase --output ~/Vault/vault Vault.zip
         fi
         rm -f Vault.zip
+        popd
         ;;
     d | delete)
+        pushd ~/Desktop
         read -p "Delete Vault without saving? (y/Y) " -n 1
         echo
-        if [[ $REPLY =~ ^[Yy]$ ]]
-        then
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
             rm -rf Vault
         fi
+        popd
+        ;;
+    *)
+        printf "${USAGE_MESSAGE}"
         ;;
     esac
-    popd
 }
 
 function tvconvert() {

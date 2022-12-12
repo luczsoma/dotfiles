@@ -87,6 +87,7 @@ function vault() {
         echo
         if [[ $REPLY =~ ^[Yy]$ ]]; then
             rm -rf Vault
+            printf "The Vault has been deleted without saving."
         fi
         popd
         ;;

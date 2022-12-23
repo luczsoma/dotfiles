@@ -228,3 +228,5 @@ elif type compctl &>/dev/null; then
   compctl -K _npm_completion npm
 fi
 ###-end-npm-completion-###
+
+. "$HOME/.cargo/env"

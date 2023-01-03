@@ -83,7 +83,7 @@ function vault() {
         ;;
     d | delete)
         pushd ~/Desktop
-        read -p "Delete Vault without saving? (y/Y) " -n 1
+        read -p "Delete Vault without saving changes? (y/Y) " -n 1
         echo
         if [[ $REPLY =~ ^[Yy]$ ]]; then
             rm -rf Vault

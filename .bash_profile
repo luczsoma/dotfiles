@@ -230,4 +230,5 @@ elif type compctl &>/dev/null; then
 fi
 ###-end-npm-completion-###
 
+# Rust (Cargo)
 . "$HOME/.cargo/env"

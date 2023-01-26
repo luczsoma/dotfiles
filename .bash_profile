@@ -232,3 +232,8 @@ fi
 
 # Rust (Cargo)
 . "$HOME/.cargo/env"
+
+# YNAB CSV converter
+function ynabcsv() {
+	python3 ~/.dotfiles/ynab-csv-converter.py $1
+}

@@ -342,31 +342,29 @@ async function convert(
 async function main() {
   const args = process.argv.slice(2);
   if (
-    args.length === 0 ||
-    args.length === 1 ||
-    (args.length === 2 &&
-      args[0] !== "-c" &&
+    args.length !== 2 ||
+    (args[0] !== "-c" &&
       args[0] !== "--config" &&
       args[0] !== "-p" &&
       args[0] !== "--print-config" &&
       !args[1].endsWith(".json"))
   ) {
     printHelp();
-    process.exit(1);
+    return 1;
   }
 
   if (args[0] === "-p" || args[0] === "--print-config") {
     writeFileSync(args[1], `${JSON.stringify(EXAMPLE_CONFIG, null, 2)}\n`);
-    process.exit(0);
+    return 0;
   }
 
-  const config = JSON.parse(readFileSync(args[1], { encoding: "utf8" }));
-
+  let config;
   try {
+    config = JSON.parse(readFileSync(args[1], { encoding: "utf8" }));
     validateConfig(config);
   } catch (ex) {
     console.error(ex.message);
-    process.exit(1);
+    return 1;
   }
 
   config.inputs = config.inputs.map((i) => ({ inputFilePath: i }));
@@ -419,15 +417,15 @@ async function main() {
     }
   }
 
-  if (errors.length === 0) {
-    console.log("\nSUCCESS");
-  } else {
+  if (errors.length > 0) {
     console.log(`\nFINISHED WITH ${errors.length} ERRORS:`);
     for (const { inputFilePath, stderr } of errors) {
       console.log(`\n${inputFilePath}\n${stderr}`);
     }
-    process.exit(1);
+    return 1;
   }
+
+  console.log("\nSUCCESS");
 
   if (additionalSubtitlesNeeded.length > 0) {
     console.log("\nADDITIONAL SUBTITLES NEEDED:");
@@ -435,6 +433,9 @@ async function main() {
       console.log(inputFilePath);
     }
   }
+
+  return 0;
 }
 
-main();
+const exitCode = main();
+process.exit(exitCode);

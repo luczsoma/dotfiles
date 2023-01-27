@@ -1,25 +1,8 @@
-import os
 import csv
+import os
 import sys
 from datetime import datetime
 from decimal import Decimal
-
-
-def map_csv_row_to_finalized_transaction(csv_row: list[str]) -> tuple[datetime, str, Decimal, str]:
-    type_field, date_1_field, date_2_field, id_field, amount_field, \
-        notice_1_field, notice_2_field, *notices_rest = csv_row
-
-    if (type_field == 'Kártyatranzakció'):
-        date = datetime.strptime(notice_1_field.split(' ')[1], '%Y%m%d')
-    else:
-        date = datetime.strptime(date_1_field.split(',')[0], '%Y.%m.%d.')
-
-    date = datetime.strftime(date, '%Y-%m-%d')
-    payee = notice_2_field
-    amount = Decimal(amount_field.split(' ')[0].replace(',', '.'))
-    memo = ', '.join(
-        filter(lambda x: x != '', [type_field, notice_1_field] + notices_rest))
-    return (date, payee, amount, memo)
 
 
 def read_csv(input_csv_path: str) -> list[list[str]]:
@@ -58,6 +41,23 @@ def get_finalized_transactions(csv_rows: list[list[str]]) -> list[tuple[datetime
                   key=lambda finalized_transaction: (
                       finalized_transaction[0], abs(finalized_transaction[2])),
                   reverse=True)
+
+
+def map_csv_row_to_finalized_transaction(csv_row: list[str]) -> tuple[datetime, str, Decimal, str]:
+    type_field, date_1_field, date_2_field, id_field, amount_field, \
+        notice_1_field, notice_2_field, *notices_rest = csv_row
+
+    if (type_field == 'Kártyatranzakció'):
+        date = datetime.strptime(notice_1_field.split(' ')[1], '%Y%m%d')
+    else:
+        date = datetime.strptime(date_1_field.split(',')[0], '%Y.%m.%d.')
+
+    date = datetime.strftime(date, '%Y-%m-%d')
+    payee = notice_2_field
+    amount = Decimal(amount_field.split(' ')[0].replace(',', '.'))
+    memo = ', '.join(
+        filter(lambda x: x != '', [type_field, notice_1_field] + notices_rest))
+    return (date, payee, amount, memo)
 
 
 def main() -> None:

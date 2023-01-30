@@ -118,8 +118,10 @@ export NVM_DIR="$HOME/.nvm"
 # Homebrew
 if [[ $(uname -p) == "arm" ]]
 then
+    # bp1-mobosx-4188
     eval "$(/opt/homebrew/bin/brew shellenv)"
 else
+    # Hermes
     eval "$(/usr/local/Homebrew/bin/brew shellenv)"
 fi
 

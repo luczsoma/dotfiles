@@ -1,13 +1,14 @@
-import { spawn, spawnSync } from "child_process";
-import { existsSync, readFileSync, writeFileSync } from "fs";
-import { basename, join } from "path";
-import { createInterface } from "readline";
+import { spawn, spawnSync } from "node:child_process";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { basename, join } from "node:path";
+import { stdin, stdout } from "node:process";
+import { createInterface } from "node:readline/promises";
 
 const EXAMPLE_CONFIG = {
   ffmpegBinary: "/usr/local/bin/ffmpeg",
   ffprobeBinary: "/usr/local/bin/ffprobe",
-  inputs: ["downloaded/The Matrix/The Matrix.mkv"],
-  outputFolderPath: "converted",
+  inputs: ["./downloaded/The Matrix/The Matrix.mkv"],
+  outputFolderPath: "./converted",
 };
 
 function printHelp() {
@@ -55,18 +56,15 @@ function validateConfig(config) {
   }
 }
 
-function question(question) {
+async function question(question) {
   const readLineInterface = createInterface({
-    input: process.stdin,
-    output: process.stdout,
+    input: stdin,
+    output: stdout,
   });
 
-  return new Promise((resolve) => {
-    readLineInterface.question(question, (answer) => {
-      resolve(answer);
-      readLineInterface.close();
-    });
-  });
+  const answer = await readLineInterface.question(question);
+  readLineInterface.close();
+  return answer;
 }
 
 function getContainerInfo(inputFilePath, ffprobeBinary) {
@@ -437,5 +435,5 @@ async function main() {
   return 0;
 }
 
-const exitCode = main();
+const exitCode = await main();
 process.exit(exitCode);

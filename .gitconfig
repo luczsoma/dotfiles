@@ -19,11 +19,11 @@
 	rs = reset
 	hist = log --graph --date=short --pretty=format:\"%Cgreen%h %Cred%ad %Creset%s %Cblue%d %Cred[%an]\"
 	pushf = push --force-with-lease
-	d = diff --word-diff
-	quick-stats = ! /usr/local/bin/git-quick-stats
+	quick-stats = !/usr/local/bin/git-quick-stats
 	sh = stash
 	su = submodule update --init --recursive
 	sw = switch
+	dmb = !git br --merged | egrep -v \"(^\\*|master|devel)\" | xargs git br -d
 [push]
 	default = simple
 [color]

@@ -91,8 +91,14 @@ function tvconvert() {
 
 # Converting images
 function oraallas() {
-    sips --setProperty format jpeg --resampleWidth 1200 *.HEIC --out .
-    rm *.HEIC
+    USAGE_MESSAGE="Usage: oraallas IN_FOLDER\n"
+    if [[ $# -ne 1 ]]
+    then
+        printf "$USAGE_MESSAGE"
+        return 1
+    fi 
+    
+    find $1 -iname "*.HEIC" -exec sips --setProperty format jpeg --resampleWidth 1200 {} --out "{}.jpg" \; -exec rm {} \;
 }
 
 # YNAB CSV converter

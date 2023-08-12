@@ -23,7 +23,7 @@
 	sh = stash
 	su = submodule update --init --recursive
 	sw = switch
-	dmb = !git br --merged | egrep -v \"(^\\*|master|devel)\" | xargs git br -d
+	dmb = !git br --merged | egrep -v \"(^\\*|main|master|devel)\" | xargs git br -d
 [push]
 	default = simple
 [color]

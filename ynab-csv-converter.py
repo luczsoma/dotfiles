@@ -64,7 +64,7 @@ def map_csv_row_to_finalized_transaction(csv_row: list[str]) -> FinalizedTransac
     if (type_field == 'Kártyatranzakció'):
         date = datetime.strptime(notice_1_field.split(' ')[1], '%Y%m%d').date()
     else:
-        date = datetime.strptime(date_1_field.split(',')[
+        date = datetime.strptime(date_2_field.split(',')[
                                  0], '%Y.%m.%d.').date()
 
     payee = notice_2_field

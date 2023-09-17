@@ -15,8 +15,9 @@
 	br = branch
 	m = merge
 	f = fetch
-	r = rebase
+	rb = rebase
 	rs = reset
+	rt = restore
 	hist = log --graph --date=short --pretty=format:\"%Cgreen%h %Cred%ad %Creset%s %Cblue%d %Cred[%an]\"
 	pushf = push --force-with-lease
 	quick-stats = !/usr/local/bin/git-quick-stats

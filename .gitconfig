@@ -18,7 +18,7 @@
 	rb = rebase
 	rs = reset
 	rt = restore
-	hist = log --graph --date=short --pretty=format:\"%Cgreen%h %Cred%ad %Creset%s %Cblue%d %Cred[%an]\"
+	hist = log --graph --date=short --pretty=format:\"%C(bold green)%h%Creset %Cred%ad%Creset %s %C(bold blue)%d%Creset %Cred%an\"
 	pushf = push --force-with-lease
 	quick-stats = !/usr/local/bin/git-quick-stats
 	sh = stash

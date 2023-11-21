@@ -7,7 +7,7 @@ export const EXAMPLE_CONFIG: Config = {
   movies: [
     {
       title: "The Matrix",
-      year: 1994,
+      year: 1999,
       inputFilePath: "./downloaded/The Matrix (1999)/The Matrix (1999).mkv",
     },
   ],

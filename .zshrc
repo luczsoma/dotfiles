@@ -16,9 +16,6 @@ alias mv="mv -i"
 # Fast IP query
 alias ip="curl ifconfig.co"
 
-# Shortcut for download mp3 from youtube
-alias yt2mp3="youtube-dl -x --audio-format mp3 --audio-quality 0"
-
 ##################################################
 # HELPERS
 ##################################################
@@ -61,9 +58,6 @@ function ynabcsv() {
 
 # Add Visual Studio Code (code)
 export PATH="$PATH:/Applications/Visual Studio Code.app/Contents/Resources/app/bin"
-
-# OpenSSL 1.1 instead of the OS default LibreSSL
-export PATH="/usr/local/opt/openssl@1.1/bin:$PATH"
 
 # Loading NVM and its bash complation
 export NVM_DIR="$HOME/.nvm"

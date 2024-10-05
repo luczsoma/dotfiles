@@ -128,8 +128,12 @@ export class Movie implements IMovie {
 
       let progressPercentageRounded = getProgressPercentageRounded(0);
       ffmpeg.stdout.on("data", (data) => {
-        const outTimeMicroseconds = data.match(/out_time_us=(\d+)\n/)[1];
+        const outTimeMicroseconds = data.match(/out_time_us=(.+)\n/)[1];
         const speed = data.match(/speed=(.+)\n/)[1];
+
+        if (outTimeMicroseconds === "N/A" || speed === "N/A") {
+          return;
+        }
 
         const outTimeSeconds = outTimeMicroseconds / 1e6;
         const progress = outTimeSeconds / this.containerDurationSeconds!;

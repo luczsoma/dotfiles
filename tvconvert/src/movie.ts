@@ -333,7 +333,7 @@ export class Movie implements IMovie {
     mkvOutputArguments.push("-map", "0:v", "-codec:v", "copy");
 
     // map the selected input audio stream to the first and default output audio stream
-    // downmix to 2.0, transcode to AAC (48kHz, 256kbps), and apply the loudnorm filter with lra = 10
+    // downmix to 2.0, transcode to AAC (48kHz, 256kbps)
     mkvOutputArguments.push(
       "-map",
       `0:${this.selectedAudioStream!.index}`,
@@ -345,10 +345,8 @@ export class Movie implements IMovie {
       "256k",
       "-ac:a:0",
       "2",
-      "-filter:a:0",
-      "loudnorm=lra=10",
       "-metadata:s:a:0",
-      "title=AAC 2.0 (normalized)",
+      "title=AAC 2.0",
       "-disposition:a:0",
       "default"
     );

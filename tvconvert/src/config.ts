@@ -23,21 +23,21 @@ export class Config {
       typeof config.ffmpegBinaryPath !== "string" ||
       !existsSync(config.ffmpegBinaryPath)
     ) {
-      throw new Error("config.ffmpegBinaryPath doesn't exist");
+      throw new Error("config.ffmpegBinaryPath does not exist");
     }
 
     if (
       typeof config.ffprobeBinaryPath !== "string" ||
       !existsSync(config.ffprobeBinaryPath)
     ) {
-      throw new Error("config.ffprobeBinaryPath doesn't exist");
+      throw new Error("config.ffprobeBinaryPath does not exist");
     }
 
     if (
       typeof config.outputFolderPath !== "string" ||
       !existsSync(config.outputFolderPath)
     ) {
-      throw new Error("config.outputFolderPath doesn't exist");
+      throw new Error("config.outputFolderPath does not exist");
     }
 
     if (!Array.isArray(config.movies)) {

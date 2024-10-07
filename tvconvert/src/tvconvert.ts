@@ -2,7 +2,7 @@ import { writeFileSync } from "node:fs";
 import { argv, exit } from "node:process";
 import { Config } from "./config";
 import { EXAMPLE_CONFIG } from "./exampleConfig";
-import { IMovie, Movie } from "./movie";
+import { Movie } from "./movie";
 
 function printHelp(): void {
   console.log("Read config from {configfile}.json:");
@@ -44,12 +44,10 @@ async function main() {
     return 1;
   }
 
-  const movies = (config.movies as readonly IMovie[]).map((movie) =>
-    Movie.fromIMovie(movie)
-  );
+  const movies = config.movies.map((movie) => Movie.fromIMovie(movie));
 
   for (const movie of movies) {
-    await movie.gatherConversionInfo(config.ffprobeBinaryPath);
+    await movie.collectConversionInfo(config.ffprobeBinaryPath);
   }
 
   let currentFileIndex = 0;
@@ -63,15 +61,17 @@ async function main() {
   }
 
   const moviesWithConversionError = movies.filter(
-    (movie) => !movie.isConversionSuccessful()
+    (movie) => !movie.getConversionResult().successful
   );
   if (moviesWithConversionError.length > 0) {
-    console.log(`\nFINISHED WITH ${moviesWithConversionError.length} ERRORS:`);
     for (const movie of moviesWithConversionError) {
       console.log(
-        `\n${movie.getFullyQualifiedName(false)}\n${movie.getStderr()}`
+        `\n${movie.getFullyQualifiedName(false)}\n${
+          movie.getConversionResult().stderr
+        }`
       );
     }
+    console.log(`\nFINISHED WITH ${moviesWithConversionError.length} ERRORS`);
     return 1;
   }
 

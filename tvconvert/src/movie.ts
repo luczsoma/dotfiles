@@ -1,40 +1,55 @@
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
-import { OutputFileType } from "./outputFileTypes";
+import { currentYear } from "./currentYear";
+import {
+  convertFfprobeDispositionMapToDispositionListWithoutDefault,
+  FfProbeOutput,
+} from "./ffprobe";
 import { question } from "./utils";
 
 interface Stream {
-  index: number;
-  codec_name: string;
-  language: string | undefined;
-  title: string | undefined;
+  readonly index: number;
+  readonly codecName: string;
+  readonly language: string | undefined;
+  readonly title: string | undefined;
+  readonly dispositionsWithoutDefault: readonly string[];
 }
 
 interface AudioStream extends Stream {
-  channels: number;
+  readonly channelLayout: string;
 }
 
 interface SubtitleStream extends Stream {}
 
 interface ContainerInfo {
-  audioStreams: readonly AudioStream[];
-  subtitleStreams: readonly SubtitleStream[];
+  readonly containerDurationSeconds: number;
+  readonly audioStreams: readonly AudioStream[];
+  readonly subtitleStreams: readonly SubtitleStream[];
+}
+
+interface ConversionInfo {
+  readonly containerDurationSeconds: number;
+  readonly audioStreams: readonly AudioStream[];
+  readonly selectedAudioStream: AudioStream;
+  readonly subtitleStreams: readonly SubtitleStream[];
+  readonly selectedSubtitleStream: SubtitleStream | null;
+}
+
+interface ConversionResult {
+  successful: boolean;
+  stderr: string;
 }
 
 export interface IMovie {
-  title: string;
-  year: number;
-  inputFilePath: string;
+  readonly title: string;
+  readonly year: number;
+  readonly inputFilePath: string;
 }
 
 export class Movie implements IMovie {
-  private containerDurationSeconds: number | undefined;
-  private selectedAudioStream: AudioStream | undefined;
-  private selectedSubtitleStream: SubtitleStream | null | undefined;
-
-  private conversionSuccessful: boolean | undefined;
-  private stderr: string | undefined;
+  private conversionInfo: ConversionInfo | undefined;
+  private conversionResult: ConversionResult | undefined;
 
   public static fromIMovie(movie: IMovie): Movie {
     return new Movie(movie.title, movie.year, movie.inputFilePath);
@@ -67,19 +82,31 @@ export class Movie implements IMovie {
 
   public hasValidYear(): boolean {
     return (
-      typeof this.year === "number" && this.year >= 1888 && this.year <= 2023
+      typeof this.year === "number" &&
+      // Roundhay Garden Scene from 1888 is believed to be the oldest surviving film
+      this.year >= 1888 &&
+      this.year <= currentYear
     );
   }
 
-  public async gatherConversionInfo(ffprobeBinaryPath: string): Promise<void> {
-    console.log(`Gathering info for: ${this.getFullyQualifiedName(false)}…`);
+  public async collectConversionInfo(ffprobeBinaryPath: string): Promise<void> {
+    console.log(`Collecting info for: ${this.getFullyQualifiedName(false)}…`);
 
-    const { audioStreams, subtitleStreams } = this.getInputFileMediaInfo(
-      this.inputFilePath,
-      ffprobeBinaryPath
+    const { containerDurationSeconds, audioStreams, subtitleStreams } =
+      this.getInputFileMediaInfo(this.inputFilePath, ffprobeBinaryPath);
+
+    const selectedAudioStream = await this.selectAudioStream(audioStreams);
+    const selectedSubtitleStream = await this.selectSubtitleStream(
+      subtitleStreams
     );
-    await this.selectAudioStream(audioStreams);
-    await this.selectSubtitleStream(subtitleStreams);
+
+    this.conversionInfo = {
+      containerDurationSeconds,
+      audioStreams,
+      selectedAudioStream,
+      subtitleStreams,
+      selectedSubtitleStream,
+    };
   }
 
   public async convert(
@@ -88,9 +115,9 @@ export class Movie implements IMovie {
     currentFileIndex: number,
     allFilesCount: number
   ): Promise<void> {
-    if (!this.canConvert()) {
+    if (this.conversionInfo === undefined) {
       throw new Error(
-        "AssertError: must call gatherConversionInfo() before convert()"
+        "AssertError: must call collectConversionInfo() before convert()"
       );
     }
 
@@ -106,8 +133,8 @@ export class Movie implements IMovie {
     const inputFileArguments = ["-i", this.inputFilePath];
 
     const outputsArguments = [
-      this.getMkvOutputArguments(outputFolderPath),
-      this.getSrtOutputArguments(outputFolderPath),
+      this.getMkvOutputArguments(outputFolderPath, this.conversionInfo),
+      this.getSrtOutputArguments(outputFolderPath, this.conversionInfo),
     ];
 
     const ffmpegArguments = [
@@ -116,18 +143,23 @@ export class Movie implements IMovie {
       ...outputsArguments.flat(),
     ];
 
-    mkdirSync(this.getOutputSubfolderPath(outputFolderPath), {
-      recursive: true,
-    });
+    mkdirSync(
+      this.getOutputSubfolderPath(
+        outputFolderPath,
+        this.conversionInfo.selectedSubtitleStream
+      ),
+      {
+        recursive: true,
+      }
+    );
+
+    const { containerDurationSeconds } = this.conversionInfo;
 
     return new Promise((resolve) => {
       const ffmpeg = spawn(ffmpegBinaryPath, ffmpegArguments);
       ffmpeg.stdout.setEncoding("utf8");
 
-      const getProgressPercentageRounded = (normalizedProgress: number) =>
-        (normalizedProgress * 100).toFixed(2);
-
-      let progressPercentageRounded = getProgressPercentageRounded(0);
+      let roundedProgressPercentage = this.getRoundedProgressPercentage(0);
       ffmpeg.stdout.on("data", (data) => {
         const outTimeMicroseconds = data.match(/out_time_us=(.+)\n/)[1];
         const speed = data.match(/speed=(.+)\n/)[1];
@@ -137,15 +169,15 @@ export class Movie implements IMovie {
         }
 
         const outTimeSeconds = outTimeMicroseconds / 1e6;
-        const progress = outTimeSeconds / this.containerDurationSeconds!;
-        const newProgressPercentageRounded =
-          getProgressPercentageRounded(progress);
-        if (newProgressPercentageRounded !== progressPercentageRounded) {
-          progressPercentageRounded = newProgressPercentageRounded;
+        const progress = outTimeSeconds / containerDurationSeconds;
+        const newRoundedProgressPercentage =
+          this.getRoundedProgressPercentage(progress);
+        if (newRoundedProgressPercentage !== roundedProgressPercentage) {
+          roundedProgressPercentage = newRoundedProgressPercentage;
           this.logProgress(
             currentFileIndex,
             allFilesCount,
-            progressPercentageRounded,
+            roundedProgressPercentage,
             speed
           );
         }
@@ -158,59 +190,33 @@ export class Movie implements IMovie {
       });
 
       ffmpeg.on("close", (exitCode) => {
-        this.conversionSuccessful = exitCode === 0;
-        this.stderr = stderr;
+        this.conversionResult = {
+          successful: exitCode === 0,
+          stderr,
+        };
         resolve();
       });
     });
   }
 
-  public isConversionSuccessful(): boolean {
-    if (this.conversionSuccessful === undefined) {
-      throw new Error("AssertError: conversion didn't finish yet");
+  public getConversionResult(): ConversionResult {
+    if (this.conversionResult === undefined) {
+      throw new Error("AssertError: conversion did not finish yet");
     }
-    return this.conversionSuccessful;
+    return this.conversionResult;
   }
 
-  public getStderr(): string {
-    if (this.stderr === undefined) {
-      throw new Error("AssertError: conversion didn't finish yet");
-    }
-    return this.stderr;
-  }
-
-  private getOutputFilePath(
+  private getOutputSubfolderPath(
     outputFolderPath: string,
-    outputFileType: OutputFileType,
-    srtLanguageCode?: string | undefined
+    selectedSubtitleStream: SubtitleStream | null
   ): string {
-    if (outputFileType !== "srt" && srtLanguageCode !== undefined) {
-      throw new Error(
-        "AssertError: srtLanguageCode can only be provided when outputFileType === 'srt'"
-      );
-    }
-    const outputSubfolderPath = this.getOutputSubfolderPath(outputFolderPath);
-    let outputFileName = `${this.getFullyQualifiedName(true)}`;
-    if (srtLanguageCode !== undefined) {
-      outputFileName += `.${srtLanguageCode}`;
-    }
-    outputFileName += `.${outputFileType}`;
-    return join(outputSubfolderPath, outputFileName);
-  }
-
-  private getOutputSubfolderPath(outputFolderPath: string): string {
-    const outputSubfolderName = this.isExternalSubtitleNeeded()
-      ? "external_subtitle_needed"
-      : "ready";
+    const outputSubfolderName =
+      selectedSubtitleStream === null ? "external_subtitle_needed" : "ready";
     return join(
       outputFolderPath,
       outputSubfolderName,
       this.getFullyQualifiedName(true)
     );
-  }
-
-  private isExternalSubtitleNeeded(): boolean {
-    return this.selectedSubtitleStream === null;
   }
 
   private getInputFileMediaInfo(
@@ -225,7 +231,7 @@ export class Movie implements IMovie {
         "warning",
         "-show_format",
         "-show_streams",
-        "-print_format",
+        "-output_format",
         "json",
         inputFilePath,
       ],
@@ -234,46 +240,56 @@ export class Movie implements IMovie {
       }
     );
 
-    const { format, streams } = JSON.parse(stdout);
+    const ffprobeOutput: FfProbeOutput = JSON.parse(stdout);
 
-    this.containerDurationSeconds = format.duration;
-
-    const audioStreams: AudioStream[] = streams
-      .filter((s: any) => s.codec_type === "audio")
-      .map((s: any) => ({
+    const audioStreams: AudioStream[] = ffprobeOutput.streams
+      .filter((s) => s.codec_type === "audio")
+      .map((s) => ({
         index: s.index,
-        codec_name: s.codec_name,
-        channels: s.channels,
-        language: s.tags?.language,
-        title: s.tags?.title,
+        codecName: s.codec_name,
+        language: s.tags?.["language"],
+        title: s.tags?.["title"],
+        dispositionsWithoutDefault:
+          convertFfprobeDispositionMapToDispositionListWithoutDefault(
+            s.disposition
+          ),
+        channelLayout: s.channel_layout,
       }));
 
-    const subtitleStreams: SubtitleStream[] = streams
-      .filter((s: any) => s.codec_type === "subtitle")
-      .map((s: any) => ({
+    const subtitleStreams: SubtitleStream[] = ffprobeOutput.streams
+      .filter((s) => s.codec_type === "subtitle")
+      .map((s) => ({
         index: s.index,
-        codec_name: s.codec_name,
-        language: s.tags?.language,
-        title: s.tags?.title,
+        codecName: s.codec_name,
+        language: s.tags?.["language"],
+        title: s.tags?.["title"],
+        dispositionsWithoutDefault:
+          convertFfprobeDispositionMapToDispositionListWithoutDefault(
+            s.disposition
+          ),
       }));
 
-    return { audioStreams, subtitleStreams };
+    return {
+      containerDurationSeconds: ffprobeOutput.format.duration,
+      audioStreams,
+      subtitleStreams,
+    };
   }
 
   private async selectAudioStream(
     audioStreams: readonly AudioStream[]
-  ): Promise<void> {
+  ): Promise<AudioStream> {
     console.table(
       audioStreams.map((stream) => ({
         Index: stream.index,
         Language: stream.language,
-        Codec: stream.codec_name,
-        Channels: stream.channels,
-        Title: stream.title,
+        Codec: stream.codecName,
+        "Channel layout": stream.channelLayout,
+        Title: stream.title ?? "",
       }))
     );
 
-    do {
+    while (true) {
       const audioStreamSelectionAnswer = await question(
         "Select audio stream index: "
       );
@@ -281,114 +297,174 @@ export class Movie implements IMovie {
         audioStreamSelectionAnswer,
         10
       );
-      this.selectedAudioStream = audioStreams.find(
+      const selectedAudioStream = audioStreams.find(
         (audioStream) => audioStream.index === audioStreamIndexCandidate
       );
-    } while (this.selectedAudioStream === undefined);
+      if (selectedAudioStream !== undefined) {
+        return selectedAudioStream;
+      }
+    }
   }
 
   private async selectSubtitleStream(
     subtitleStreams: readonly SubtitleStream[]
-  ): Promise<void> {
+  ): Promise<SubtitleStream | null> {
     console.table(
       subtitleStreams
-        .filter((s) => s.codec_name === "subrip")
+        .filter((s) => s.codecName === "subrip")
         .map((stream) => ({
           Index: stream.index,
           Language: stream.language,
-          Title: stream.title,
+          Title: stream.title ?? "",
         }))
     );
 
-    do {
+    while (true) {
       const subtitleStreamSelectionAnswer = await question(
         "Select subtitle stream index (leave empty if using external subtitles): "
       );
       if (subtitleStreamSelectionAnswer === "") {
-        this.selectedSubtitleStream = null;
-        break;
+        return null;
       }
       const subtitleStreamIndexCandidate = Number.parseInt(
         subtitleStreamSelectionAnswer,
         10
       );
-      this.selectedSubtitleStream = subtitleStreams.find(
+      const selectedSubtitleStream = subtitleStreams.find(
         (subtitleStream) =>
           subtitleStream.index === subtitleStreamIndexCandidate
       );
-    } while (this.selectedSubtitleStream === undefined);
+      if (selectedSubtitleStream !== undefined) {
+        return selectedSubtitleStream;
+      }
+    }
   }
 
-  private canConvert(): boolean {
-    return [
-      this.containerDurationSeconds,
-      this.selectedAudioStream,
-      this.selectedSubtitleStream,
-    ].every((v) => v !== undefined);
-  }
+  private getMkvOutputArguments(
+    outputFolderPath: string,
+    conversionInfo: ConversionInfo
+  ): readonly string[] {
+    const mkvOutputArguments = [
+      // do not transcode any streams unless explicitly specified
+      "-codec",
+      "copy",
 
-  private getMkvOutputArguments(outputFolderPath: string): string[] {
-    const mkvOutputArguments = [];
+      // remove all metadata
+      "-map_metadata",
+      "-1",
 
-    // copy video streams
-    mkvOutputArguments.push("-map", "0:v", "-codec:v", "copy");
+      // remove all chapters
+      "-map_chapters",
+      "-1",
 
-    // map the selected input audio stream to the first and default output audio stream
-    // downmix to 2.0, transcode to AAC (48kHz, 256kbps)
-    mkvOutputArguments.push(
+      // map video streams (that are not attached pictures, video thumbnails, or cover arts)
       "-map",
-      `0:${this.selectedAudioStream!.index}`,
-      "-codec:a:0",
-      "aac",
-      "-ar:a:0",
-      "48000",
-      "-b:a:0",
-      "256k",
-      "-ac:a:0",
-      "2",
-      "-metadata:s:a:0",
-      "title=AAC 2.0",
-      "-disposition:a:0",
-      "default"
-    );
+      "0:V",
 
-    // map all (the first 100, if they exist) original audio streams shifted by plus one
-    for (
-      let iAudioInputStream = 0, iAudioOutputStream = 1;
-      iAudioInputStream < 100;
-      iAudioInputStream++, iAudioOutputStream++
-    ) {
-      mkvOutputArguments.push(
-        "-map",
-        `0:a:${iAudioInputStream}?`,
-        `-codec:a:${iAudioOutputStream}`,
-        "copy",
-        `-disposition:a:${iAudioOutputStream}`,
-        "0"
-      );
+      // map the selected audio input stream to the first audio output stream
+      "-map",
+      `0:${conversionInfo.selectedAudioStream.index}`,
+    ];
+
+    // map all audio input streams
+    for (const audioStream of conversionInfo.audioStreams) {
+      mkvOutputArguments.push("-map", `0:${audioStream.index}`);
     }
 
-    // map all original subtitle streams
-    mkvOutputArguments.push("-map", "0:s?", "-codec:s", "copy");
+    // map all subtitle input streams
+    for (const subtitleStream of conversionInfo.subtitleStreams) {
+      mkvOutputArguments.push("-map", `0:${subtitleStream.index}`);
+    }
 
-    mkvOutputArguments.push(this.getOutputFilePath(outputFolderPath, "mkv"));
+    // for the first audio output stream (mapped from the selected audio input stream)
+    mkvOutputArguments.push(
+      // transcode to AAC at 128k bitrate
+      "-codec:a:0",
+      "aac",
+      "-b:a:0",
+      "128k",
+
+      // downmix to 2.0
+      "-ac:a:0",
+      "2",
+
+      ...this.getStreamMetadataArguments(
+        "a:0",
+        conversionInfo.selectedAudioStream.language,
+        "aac",
+        undefined,
+        "stereo"
+      ),
+
+      ...this.getStreamDispositionArguments(
+        "a:0",
+        conversionInfo.selectedAudioStream.dispositionsWithoutDefault,
+        true
+      )
+    );
+
+    // for all other audio output streams
+    conversionInfo.audioStreams.forEach((audioStream, i) => {
+      mkvOutputArguments.push(
+        ...this.getStreamMetadataArguments(
+          `a:${i + 1}`,
+          audioStream.language,
+          audioStream.codecName,
+          audioStream.title,
+          audioStream.channelLayout
+        ),
+
+        ...this.getStreamDispositionArguments(
+          `a:${i + 1}`,
+          audioStream.dispositionsWithoutDefault,
+          false
+        )
+      );
+    });
+
+    // for all subtitle output streams
+    conversionInfo.subtitleStreams.forEach((subtitleStream, i) => {
+      mkvOutputArguments.push(
+        ...this.getStreamMetadataArguments(
+          `s:${i}`,
+          subtitleStream.language,
+          subtitleStream.codecName,
+          subtitleStream.title
+        ),
+
+        ...this.getStreamDispositionArguments(
+          `s:${i}`,
+          subtitleStream.dispositionsWithoutDefault,
+          false
+        )
+      );
+    });
+
+    mkvOutputArguments.push(
+      this.getMkvOutputFilePath(
+        outputFolderPath,
+        conversionInfo.selectedSubtitleStream
+      )
+    );
 
     return mkvOutputArguments;
   }
 
-  private getSrtOutputArguments(outputFolderPath: string): string[] {
+  private getSrtOutputArguments(
+    outputFolderPath: string,
+    conversionInfo: ConversionInfo
+  ): readonly string[] {
     // do not produce an srt output if there is no selected subtitle stream
-    if (this.selectedSubtitleStream === null) {
+    if (conversionInfo.selectedSubtitleStream === null) {
       return [];
     }
 
     return [
       "-map",
-      `0:${this.selectedSubtitleStream!.index}`,
-      this.getOutputFilePath(
+      `0:${conversionInfo.selectedSubtitleStream.index}`,
+      this.getSrtOutputFilePath(
         outputFolderPath,
-        "srt",
-        this.selectedSubtitleStream?.language
+        conversionInfo.selectedSubtitleStream
       ),
     ];
   }
@@ -404,5 +480,108 @@ export class Movie implements IMovie {
         false
       )} [${progressPercentageRounded}% at ${speed}]`
     );
+  }
+
+  private getMkvOutputFilePath(
+    outputFolderPath: string,
+    selectedSubtitleStream: SubtitleStream | null
+  ): string {
+    const outputSubfolderPath = this.getOutputSubfolderPath(
+      outputFolderPath,
+      selectedSubtitleStream
+    );
+    const outputFileName = `${this.getFullyQualifiedName(true)}.mkv`;
+    return join(outputSubfolderPath, outputFileName);
+  }
+
+  private getSrtOutputFilePath(
+    outputFolderPath: string,
+    selectedSubtitleStream: SubtitleStream
+  ): string {
+    const outputSubfolderPath = this.getOutputSubfolderPath(
+      outputFolderPath,
+      selectedSubtitleStream
+    );
+    const outputFileName = [
+      this.getFullyQualifiedName(true),
+      selectedSubtitleStream.language ?? "???",
+      "srt",
+    ].join(".");
+    return join(outputSubfolderPath, outputFileName);
+  }
+
+  private getStreamMetadataArguments(
+    streamSpecifier: string,
+    language: string | undefined,
+    codecName: string,
+    originalTitle: string | undefined,
+    channelLayout?: string | undefined
+  ): readonly string[] {
+    let ret = [
+      // set title
+      `-metadata:s:${streamSpecifier}`,
+      `title=${this.getStreamTitle(
+        language,
+        codecName,
+        originalTitle,
+        channelLayout
+      )}`,
+    ];
+
+    // set language if exists
+    if (language !== undefined) {
+      ret.push(`-metadata:s:${streamSpecifier}`, `language=${language}`);
+    }
+
+    return ret;
+  }
+
+  private getStreamTitle(
+    language: string | undefined,
+    codecName: string,
+    originalTitle: string | undefined,
+    channelLayout?: string | undefined
+  ): string {
+    let lang = language ?? "???";
+    let ret = `${lang} ${codecName}`;
+    if (channelLayout !== undefined) {
+      ret += ` ${channelLayout}`;
+    }
+    if (originalTitle !== undefined) {
+      ret += ` [${originalTitle}]`;
+    }
+    return ret;
+  }
+
+  private getStreamDispositionArguments(
+    streamSpecifier: string,
+    dispositionsWithoutDefault: readonly string[],
+    isDefault: boolean
+  ): readonly string[] {
+    const disposition = this.getDisposition(
+      dispositionsWithoutDefault,
+      isDefault
+    );
+    if (disposition === "") {
+      return [];
+    }
+    return [`-disposition:${streamSpecifier}`, disposition];
+  }
+
+  private getDisposition(
+    dispositionsWithoutDefault: readonly string[],
+    isDefault: boolean
+  ): string {
+    let ret = [...dispositionsWithoutDefault];
+
+    if (isDefault) {
+      ret.unshift("default");
+    }
+
+    return ret.join("+");
+  }
+
+  private getRoundedProgressPercentage(normalizedProgress: number) {
+    return (normalizedProgress * 100).toFixed(2);
   }
 }

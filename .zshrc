@@ -33,7 +33,7 @@ function jdk() {
 
 # Converting movies to tv
 function tvconvert() {
-    node ~/.dotfiles/tvconvert.mjs "$@"
+    node ~/.dotfiles/tvconvert/build/tvconvert.js "$@"
 }
 
 # Converting images

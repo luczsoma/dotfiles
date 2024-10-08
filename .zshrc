@@ -44,7 +44,7 @@ function oraallas() {
         return 1
     fi 
     
-    find $1 -iname "*.HEIC" -exec sips --setProperty format jpeg --resampleWidth 1200 {} --out "{}.jpg" \; -exec rm {} \;
+    find -E $1 -regex ".+\.(heic|jpe?g)" -exec sips --setProperty format jpeg --resampleWidth 1200 {} --out "{}.jpg" \; -exec rm {} \;
 }
 
 # YNAB CSV converter

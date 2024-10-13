@@ -31,11 +31,6 @@ function jdk() {
     fi
 }
 
-# Converting movies to tv
-function tvconvert() {
-    node ~/.dotfiles/tvconvert/build/tvconvert.js "$@"
-}
-
 # Converting images
 function oraallas() {
     USAGE_MESSAGE="Usage: oraallas IN_FOLDER\n"

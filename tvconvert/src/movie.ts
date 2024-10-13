@@ -125,6 +125,7 @@ export class Movie implements IMovie {
       "-hide_banner",
       "-loglevel",
       "warning",
+      "-nostats",
       "-progress",
       "pipe:1",
       "-y",

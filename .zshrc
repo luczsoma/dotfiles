@@ -13,9 +13,6 @@ alias ls="ls -FGh"
 # Make mv ask before overwriting a file by default
 alias mv="mv -i"
 
-# Fast IP query
-alias ip="curl ifconfig.co"
-
 ##################################################
 # HELPERS
 ##################################################

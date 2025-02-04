@@ -5,11 +5,18 @@
 read "target_machine?Target machine: "
 read "target_user?Target username: "
 read "source_machine?Source machine: "
+read -q "is_password_protected?Protect SSH key with password [Y/n]: "
+echo
 
 ssh_key_id=${target_machine}_${target_user}_${source_machine}_$(date "+%Y%m%d")
-password=$(pwgen -s 43)
 
-ssh-keygen -t ed25519 -Z chacha20-poly1305@openssh.com -N ${password} -f ${ssh_key_id} -C ${ssh_key_id}
+if [[ ${is_password_protected} == "y" ]]; then
+    password=$(pwgen -s 43)
+else
+    password=""
+fi
+
+ssh-keygen -t ed25519 -Z chacha20-poly1305@openssh.com -N "${password}" -f ${ssh_key_id} -C ${ssh_key_id}
 
 echo "\n1. Add this to ~/.ssh/authorized_keys on the target machine:"
 cat ${ssh_key_id}.pub
@@ -21,4 +28,6 @@ echo "User ${target_user}"
 echo "IdentityFile ~/.ssh/${ssh_key_id}"
 echo "UseKeychain yes"
 echo "\n3. ssh ${target_machine}"
-echo "\n4. Use the following password for the key (it is stored in the Keychain on first use): ${password}"
+if [[ ${is_password_protected} == "y" ]]; then
+    echo "\n4. Use the following password for the key (it is stored in the Keychain on first use): ${password}"
+fi

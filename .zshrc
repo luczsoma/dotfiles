@@ -39,9 +39,9 @@ function oraallas() {
     find -E $1 -regex ".+\.(heic|jpe?g|HEIC|JPE?G)" -exec sips --setProperty format jpeg --resampleWidth 1200 {} --out "{}.jpg" \; -exec rm {} \;
 }
 
-# YNAB CSV converter
-function ynabcsv() {
-	python3 ~/.dotfiles/ynab-csv-converter.py $1
+# YNAB converter
+function ynab() {
+    ~/git/ynab-converter/venv/bin/python ~/git/ynab-converter/ynab-converter.py $1
 }
 
 ##################################################

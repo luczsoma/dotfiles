@@ -68,6 +68,3 @@ fi
 # Rust (Cargo)
 . "$HOME/.cargo/env"
 
-# Emscripten SDK
-export EMSDK_QUIET=1
-. "$HOME/git/emsdk/emsdk_env.sh"

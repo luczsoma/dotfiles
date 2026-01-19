@@ -48,7 +48,7 @@ function ynab() {
 # SETTING STUFF
 ##################################################
 
-# Add Visual Studio Code (code)
+# Add Visual Studio Code (code) to $PATH
 export PATH="$PATH:/Applications/Visual Studio Code.app/Contents/Resources/app/bin"
 
 # Loading NVM and its bash complation
@@ -68,3 +68,5 @@ fi
 # Rust (Cargo)
 . "$HOME/.cargo/env"
 
+# Add ~/.local/bin to $PATH
+export PATH="$HOME/.local/bin:$PATH"

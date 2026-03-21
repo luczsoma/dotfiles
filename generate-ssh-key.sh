@@ -2,15 +2,21 @@
 
 # Run this in ~/.ssh
 
+if ! command -v pwgen >/dev/null 2>&1; then
+    echo "ERROR: pwgen is not installed"
+    exit 1
+fi
+
 read "target_machine?Target machine: "
 read "target_user?Target username: "
 read "source_machine?Source machine: "
-read -q "is_password_protected?Protect SSH key with password [Y/n]: "
-echo
+read "is_password_protected?Protect SSH key with password [Y/n]: "
+
+is_password_protected=${${is_password_protected:-y}:l}
 
 ssh_key_id=${target_machine}_${target_user}_${source_machine}_$(date "+%Y%m%d")
 
-if [[ ${is_password_protected} == "y" ]]; then
+if [[ "${is_password_protected}" == "y" ]]; then
     password=$(pwgen -s 43)
 else
     password=""
@@ -28,6 +34,6 @@ echo "User ${target_user}"
 echo "IdentityFile ~/.ssh/${ssh_key_id}"
 echo "UseKeychain yes"
 echo "\n3. ssh ${target_machine}"
-if [[ ${is_password_protected} == "y" ]]; then
+if [[ "${is_password_protected}" == "y" ]]; then
     echo "\n4. Use the following password for the key (it is stored in the Keychain on first use): ${password}"
 fi

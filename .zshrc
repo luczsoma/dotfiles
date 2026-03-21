@@ -57,13 +57,7 @@ export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
 
 # Homebrew
-if [[ $(uname -p) == "arm" ]]; then
-    # bp1-mobosx-4188
-    eval "$(/opt/homebrew/bin/brew shellenv)"
-else
-    # Hermes
-    eval "$(/usr/local/Homebrew/bin/brew shellenv)"
-fi
+eval "$(/opt/homebrew/bin/brew shellenv)"
 
 # Rust (Cargo)
 . "$HOME/.cargo/env"
